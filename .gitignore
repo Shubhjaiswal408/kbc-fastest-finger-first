@@ -1,0 +1,10 @@
+# Compiled firmware
+build/
+
+# Your Wi-Fi password lives here - never commit it
+KBC_Host/wifi_secrets.h
+
+# Editor / OS clutter
+.vscode/
+.DS_Store
+Thumbs.db

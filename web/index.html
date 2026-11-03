@@ -1,0 +1,1492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KBC Buzzer</title>
+<style>
+:root{
+  --bg:#07041a; --bg2:#120a36; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.07);
+  --line:rgba(255,255,255,.10); --text:#eef0ff; --muted:#9ea3cf; --dim:#6c7099;
+  --gold:#f5c542; --gold2:#ffe08a; --goldD:#a8781f; --violet:#6d4aff;
+  --green:#22c55e; --greenD:#0f7a3a; --red:#ef4444; --blue:#38bdf8; --orange:#fb923c;
+  --r:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:radial-gradient(1200px 700px at 70% -10%,#2a1680 0%,transparent 60%),radial-gradient(900px 600px at -10% 110%,#1d0f5c 0%,transparent 55%),var(--bg);
+  color:var(--text);font:15px/1.45 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--gold2)}
+kbd{font:600 11px var(--mono);padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.18);margin-left:8px;opacity:.85}
+.hidden{display:none!important}
+.muted{color:var(--muted)} .dim{color:var(--dim)} .mono{font-family:var(--mono)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:rgba(7,4,26,.78);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1320px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:36px;height:36px;flex:none}
+.brand b{font-size:17px;letter-spacing:.2px;white-space:nowrap}
+.brand small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.pills{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+.dot.ok{background:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.dot.bad{background:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+.dot.warn{background:var(--gold)}
+.tabs{max-width:1320px;margin:0 auto;padding:0 14px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{background:none;border:0;padding:10px 14px 12px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--gold2);border-bottom-color:var(--gold)}
+.tab .count{font-size:11px;background:var(--panel2);padding:1px 7px;border-radius:999px;margin-left:6px;color:var(--muted)}
+
+main{max-width:1320px;margin:0 auto;padding:22px 20px 60px}
+.demo-banner{max-width:1320px;margin:12px auto 0;padding:0 20px}
+.demo-banner div{background:linear-gradient(90deg,rgba(245,197,66,.16),rgba(109,74,255,.16));border:1px solid rgba(245,197,66,.35);border-radius:12px;padding:10px 14px;font-size:14px}
+
+/* ---------- cards & controls ---------- */
+.grid-play{display:grid;grid-template-columns:400px 1fr;gap:20px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.card + .card{margin-top:20px}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.card-h h2{font-size:16px;margin:0;font-weight:700}
+.card-h .grow{flex:1}
+label.lbl{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.in,select.in,textarea.in{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 12px;outline:none;transition:border .15s}
+.in:focus{border-color:var(--gold)}
+select.in option{background:#1a1240}
+textarea.in{resize:vertical;min-height:90px;font-family:var(--mono);font-size:13px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 14px;font-weight:600;transition:transform .06s,background .15s,border-color .15s}
+.btn:hover{background:rgba(255,255,255,.11)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:linear-gradient(180deg,#ffd970,#e8a920);border-color:#ffd970;color:#2a1a00}
+.btn.primary:hover{background:linear-gradient(180deg,#ffe28c,#f0b32a)}
+.btn.go{background:linear-gradient(180deg,#34d77a,#16a34a);border-color:#4ade80;color:#032312}
+.btn.warn{background:linear-gradient(180deg,#ff9f5a,#ea6c12);border-color:#fdba74;color:#2b1100}
+.btn.danger{color:#fecaca;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.12)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.big{width:100%;padding:13px;font-size:18px;border-radius:12px;margin-top:14px}
+.icon-btn{width:34px;height:34px;padding:0;border-radius:9px}
+
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.seg button{border:1px solid var(--line);background:rgba(0,0,0,.2);border-radius:10px;padding:10px 0;font-weight:800;font-size:17px;color:var(--muted)}
+.seg button.on{background:linear-gradient(180deg,#2ad07a,#159447);border-color:#4ade80;color:#fff;box-shadow:0 0 0 3px rgba(34,197,94,.2)}
+.seg.flash{animation:flash .5s 2}
+@keyframes flash{50%{box-shadow:0 0 0 4px rgba(245,197,66,.6);border-radius:12px}}
+
+.stepper{display:flex;gap:4px;margin:2px 0 4px;padding:0;list-style:none}
+.stepper li{flex:1;text-align:center;font-size:11px;font-weight:700;color:var(--dim);padding-top:8px;border-top:3px solid rgba(255,255,255,.1);letter-spacing:.02em}
+.stepper li.done{color:var(--muted);border-top-color:rgba(245,197,66,.5)}
+.stepper li.on{color:var(--gold2);border-top-color:var(--gold)}
+
+.qpick{display:flex;gap:8px}
+.qpick select{flex:1;min-width:0}
+.qprev{margin-top:8px;background:rgba(0,0,0,.2);border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+.qprev .qt{font-weight:600;margin-bottom:8px}
+.qprev ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.qprev li{font-size:13px;color:var(--muted);padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.03);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qprev li b{color:var(--gold2);margin-right:6px}
+.qprev li.ok{background:rgba(34,197,94,.14);color:#c9f7da}
+.lim-row{display:flex;gap:12px;align-items:end}
+.lim-row > div{flex:1}
+
+/* live list */
+.timerbar{position:relative;height:30px;border-radius:9px;background:rgba(0,0,0,.28);overflow:hidden;border:1px solid var(--line);margin-bottom:14px}
+.timerbar .fill{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,#6d4aff,#38bdf8);transition:width .1s linear}
+.timerbar.low .fill{background:linear-gradient(90deg,#ea580c,#ef4444)}
+.timerbar.cd .fill{background:linear-gradient(90deg,#a8781f,#f5c542)}
+.timerbar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.live{display:flex;flex-direction:column;gap:6px}
+.lrow{display:grid;grid-template-columns:30px 1fr auto 46px 56px;gap:10px;align-items:center;padding:9px 12px;border-radius:11px;background:rgba(255,255,255,.035);border:1px solid transparent;transition:background .2s}
+.lrow .rk{font-weight:800;color:var(--dim);text-align:center}
+.lrow .nm{display:flex;align-items:center;gap:9px;min-width:0}
+.lrow .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.sw{width:12px;height:12px;border-radius:4px;flex:none;background:var(--pc,#888)}
+.lrow .st{font-size:13px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.lrow .ch{justify-self:center;width:34px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:800;background:rgba(255,255,255,.06)}
+.lrow .ch:empty{visibility:hidden}
+.lrow .pt{text-align:right;font-weight:700;font-size:13px}
+.lrow.ans{background:rgba(109,74,255,.13)}
+.lrow.off{opacity:.45}
+.lrow.r2{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.3)}
+.lrow.r1,.lrow.r4{background:rgba(239,68,68,.09)}
+.lrow.r3{background:linear-gradient(90deg,rgba(245,197,66,.28),rgba(245,197,66,.08));border-color:rgba(245,197,66,.6)}
+.lrow.r3 .rk{color:var(--gold2)}
+.ch.ok{background:var(--green)!important;color:#03200f}
+.ch.no{background:rgba(239,68,68,.6)!important}
+.pt.pos{color:#86efac} .pt.neg{color:#fca5a5}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+.empty b{display:block;color:var(--text);font-size:16px;margin-bottom:4px}
+.winbox{margin-top:14px;padding:14px;border-radius:12px;background:linear-gradient(90deg,rgba(245,197,66,.2),rgba(109,74,255,.12));border:1px solid rgba(245,197,66,.45);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.winbox .trophy{font-size:28px}
+.winbox b{font-size:17px}
+
+/* players */
+.ptool{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.switch input{display:none}
+.switch i{width:40px;height:23px;border-radius:999px;background:rgba(255,255,255,.15);position:relative;transition:background .2s;flex:none}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:left .2s}
+.switch input:checked + i{background:var(--green)}
+.switch input:checked + i::after{left:20px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;border-top:3px solid var(--pc)}
+.pcard.off{opacity:.6}
+.pc-top{display:flex;gap:10px;align-items:center}
+.pc-top input[type=color]{width:34px;height:34px;border:0;padding:0;background:none;border-radius:8px;cursor:pointer;flex:none}
+.pc-top input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.pc-top input[type=color]::-webkit-color-swatch{border:2px solid rgba(255,255,255,.25);border-radius:8px}
+.pc-top .in{font-weight:700;padding:7px 10px}
+.pc-no{font:700 12px var(--mono);color:var(--muted);flex:none}
+.pc-meta{display:flex;gap:10px;align-items:center;margin:12px 0;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.bars{display:inline-flex;gap:2px;align-items:flex-end;height:13px}
+.bars i{width:3px;background:rgba(255,255,255,.2);border-radius:1px}
+.bars i.on{background:var(--green)}
+.pc-act{display:flex;gap:8px}
+.pc-st{flex:1 1 auto;min-width:0}
+.shot *,.shot *::before{animation-duration:0s!important;animation-delay:0s!important;transition:none!important}
+/* button test tiles */
+.btest{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 12px}
+.bt{position:relative;border-radius:9px;padding:7px 0 5px;text-align:center;background:rgba(0,0,0,.25);border:1px solid var(--line);transition:background .08s,border-color .08s,transform .08s}
+.bt b{display:block;font-size:17px;font-weight:900;color:var(--dim)}
+.bt small{display:block;font:600 11px var(--mono);color:var(--dim)}
+.bt.ok{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.55)}
+.bt.ok b{color:#86efac}
+.bt.ok::after{content:"✓";position:absolute;top:2px;right:6px;font-size:11px;color:#86efac}
+.bt.held{background:linear-gradient(180deg,#ffd970,#e8a920);border-color:#ffe08a;transform:scale(.94)}
+.bt.held b,.bt.held small{color:#2a1a00}
+.btwarn{font-size:12px;color:#fdba74;margin:-6px 0 10px;display:flex;gap:6px;align-items:center}
+.btsum{font-size:13px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.btsum.good{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.45);color:#c9f7da}
+/* logs */
+.logbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.logbar select.in{width:auto}
+.logbox{height:min(64vh,640px);overflow:auto;background:#05030f;border:1px solid var(--line);border-radius:12px;padding:10px 0;font:12.5px/1.55 var(--mono)}
+.lg{display:grid;grid-template-columns:92px 120px 1fr;gap:10px;padding:1px 14px;white-space:pre-wrap;word-break:break-word}
+.lg:hover{background:rgba(255,255,255,.04)}
+.lg .lt{color:var(--dim)}
+.lg .ls{font-weight:700;color:var(--pc,#cfd2ff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg.warn .lx{color:#fdba74}
+.lg.win .lx{color:var(--gold2)}
+.lg.err .lx{color:#fca5a5}
+.logempty{color:var(--muted);padding:30px;text-align:center;font-family:var(--font)}
+.wire{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
+
+/* questions */
+.qtable{width:100%;border-collapse:collapse}
+.qtable th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.qtable td{padding:10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+.qtable tr:hover td{background:rgba(255,255,255,.025)}
+.qtable .qn{color:var(--dim);font-family:var(--mono);width:36px}
+.qtable .qa{font-weight:800;color:#86efac;width:60px}
+.qtable .qo{font-size:12px;color:var(--muted);margin-top:3px}
+.qtable .acts{white-space:nowrap;text-align:right;width:1%}
+
+/* scores */
+.lb{display:flex;flex-direction:column;gap:8px}
+.lbrow{display:grid;grid-template-columns:40px 1fr 70px auto;gap:12px;align-items:center;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.035)}
+.lbrow .rk{font-size:20px;text-align:center;font-weight:800;color:var(--dim)}
+.lbrow .bar{height:6px;border-radius:3px;background:var(--pc);margin-top:6px;opacity:.85;min-width:4px}
+.lbrow .sc{text-align:right;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+
+/* settings */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.field{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.field:last-child{border-bottom:0}
+.field .t{font-weight:600}
+.field .d{font-size:13px;color:var(--muted)}
+.field .in{width:110px;text-align:center}
+.field select.in{width:auto;text-align:left}
+.field .in.wide{width:220px;text-align:left}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+
+/* modal + toast */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(3,2,12,.72);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto}
+.modal .card{width:100%;max-width:620px;background:#150d3d}
+.opt-in{display:grid;grid-template-columns:30px 1fr 34px;gap:8px;align-items:center;margin-top:8px}
+.opt-in b{color:var(--gold2);text-align:center}
+.opt-in input[type=radio]{width:20px;height:20px;accent-color:var(--green)}
+#toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#1d1452;border:1px solid var(--line);padding:10px 16px;border-radius:10px;box-shadow:var(--shadow);font-size:14px;animation:tin .2s}
+.toast.err{border-color:rgba(239,68,68,.6);background:#3a1020}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+/* =================== BIG SCREEN =================== */
+#stage{position:fixed;inset:0;z-index:50;overflow:hidden;color:#fff;
+  background:radial-gradient(ellipse at 50% 35%,#3b1d9a 0%,#1a0b55 38%,#070222 75%);display:flex;flex-direction:column}
+#stage::before{content:"";position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.035) 0deg 6deg,transparent 6deg 18deg);animation:spin 90s linear infinite;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.st-top{position:relative;display:flex;align-items:center;gap:14px;padding:2.2vh 3vw}
+.st-title{font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:clamp(14px,1.7vw,24px);color:var(--gold2)}
+.st-round{margin-left:auto;font-weight:700;color:#cfd2ff;font-size:clamp(13px,1.4vw,20px)}
+.st-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:10px;color:#fff;padding:6px 12px}
+.st-body{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:0 4vw;min-height:0;overflow-y:auto;overflow-x:hidden}
+.st-splash{text-align:center}
+.st-splash .logo-big{width:min(22vh,180px);height:min(22vh,180px);filter:drop-shadow(0 0 40px rgba(245,197,66,.45));animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.05)}}
+.st-splash h1{margin:3vh 0 1vh;font-size:clamp(28px,5vw,72px);letter-spacing:.04em;background:linear-gradient(180deg,#fff7d6,#f5c542 60%,#b8862b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.st-splash p{font-size:clamp(14px,1.8vw,26px);color:#cfd2ff;margin:0}
+.st-cd{font-size:min(38vh,30vw);font-weight:900;line-height:1;color:var(--gold2);text-shadow:0 0 40px rgba(245,197,66,.55),0 4px 0 #a8781f;animation:cdpop .6s ease-out}
+@keyframes cdpop{from{transform:scale(1.45)}}
+@keyframes pop{from{transform:scale(1.6);opacity:0}}
+.st-cdlabel{font-size:clamp(16px,2.2vw,30px);letter-spacing:.3em;text-transform:uppercase;color:#cfd2ff;margin-top:1vh}
+.st-game{width:100%;max-width:1500px;display:flex;flex-direction:column;align-items:center;gap:2.6vh}
+.ring{position:relative;width:min(17vh,150px);height:min(17vh,150px)}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:9}
+.ring .bg{stroke:rgba(255,255,255,.12)}
+.ring .fg{stroke:var(--gold);stroke-linecap:round;transition:stroke-dashoffset .1s linear,stroke .3s}
+.ring.low .fg{stroke:var(--red)}
+.ring .num{position:absolute;inset:0;display:grid;place-items:center;font-weight:900;font-size:min(6.5vh,56px);font-variant-numeric:tabular-nums}
+.ring .num small{display:block;font-size:.3em;font-weight:700;letter-spacing:.15em;color:#cfd2ff;text-align:center;margin-top:-.4em}
+.line{position:relative;width:100%;display:flex;justify-content:center}
+.line::before{content:"";position:absolute;left:-10vw;right:-10vw;top:50%;height:2px;background:linear-gradient(90deg,transparent,#c9962e 15%,#ffe08a 50%,#c9962e 85%,transparent);z-index:0}
+.loz{--cut:clamp(18px,2.4vw,40px);position:relative;z-index:1;padding:2px;background:linear-gradient(90deg,#9a6b1c,#ffe08a,#9a6b1c);
+  clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% 50%,calc(100% - var(--cut)) 100%,var(--cut) 100%,0 50%);transition:transform .3s}
+.loz > div{background:linear-gradient(180deg,#1e1270 0%,#0b0640 55%,#140a55 100%);
+  clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% 50%,calc(100% - var(--cut)) 100%,var(--cut) 100%,0 50%);
+  padding:clamp(10px,1.8vh,22px) calc(var(--cut) + 1.2vw);display:flex;align-items:center;gap:1vw;min-height:100%}
+.loz.q{width:100%}
+.loz.q > div{justify-content:center;text-align:center;font-size:clamp(18px,2.6vw,44px);font-weight:700;min-height:min(14vh,130px)}
+.opts{width:100%;display:flex;flex-direction:column;gap:2.2vh}
+.opts .line{gap:4vw}
+.loz.o{flex:1}
+.opts .line > .loz.o:only-child{flex:0 1 calc(50% - 2vw)}   /* odd option count: centre the last one */
+.loz.o > div{font-size:clamp(16px,2vw,34px);font-weight:600;min-height:min(9vh,86px)}
+.loz.o b{color:var(--gold);font-weight:900;margin-right:.4em}
+.loz.o.only > div{justify-content:center}
+.loz.o.only b{font-size:1.5em;margin:0}
+.loz.o.correct{background:linear-gradient(90deg,#14532d,#86efac,#14532d);animation:blinkok .45s 5}
+.loz.o.correct > div{background:linear-gradient(180deg,#22c55e,#0f7a3a)}
+.loz.o.correct b{color:#fff}
+.loz.o.dimmed{opacity:.45}
+@keyframes blinkok{50%{filter:brightness(1.5)}}
+.st-banner{font-size:clamp(16px,2vw,30px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold2)}
+.st-chips{position:relative;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:2vh 3vw 3vh}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);font-weight:700;font-size:clamp(12px,1.25vw,19px);transition:all .25s}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--pc)}
+.chip.ans{background:rgba(245,197,66,.22);border-color:var(--gold);box-shadow:0 0 18px rgba(245,197,66,.35);transform:translateY(-3px)}
+.chip.r2{background:rgba(34,197,94,.25);border-color:#4ade80}
+.chip.r1,.chip.r4{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.6)}
+.chip.r3{background:linear-gradient(90deg,#b8862b,#f5c542);border-color:#ffe08a;color:#2a1a00}
+.chip.off{opacity:.35}
+.res{width:min(900px,100%);display:flex;flex-direction:column;gap:1.1vh}
+.res-row{display:grid;grid-template-columns:2.4em 1fr 2.6em 6.5em;align-items:center;gap:1vw;padding:1.1vh 1.6vw;border-radius:12px;background:rgba(10,6,50,.8);border:1px solid rgba(255,224,138,.25);font-size:clamp(14px,1.7vw,28px);animation:slidein .4s both}
+.res-row .rk{font-weight:900;color:var(--gold2);text-align:center}
+.res-row .n{font-weight:700;display:flex;align-items:center;gap:.6em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.res-row .n i{width:.6em;height:.6em;border-radius:50%;background:var(--pc);flex:none}
+.res-row .c{font-weight:900;text-align:center;border-radius:8px;background:rgba(255,255,255,.08)}
+.res-row .t{text-align:right;font-family:var(--mono);font-weight:700}
+.res-row.r2{background:linear-gradient(90deg,rgba(22,163,74,.55),rgba(22,163,74,.25));border-color:#4ade80}
+.res-row.r3{background:linear-gradient(90deg,#c9962e,#f5c542);color:#231400;border-color:#ffe08a;box-shadow:0 0 40px rgba(245,197,66,.45);transform:scale(1.03)}
+.res-row.r3 .rk{color:#231400}
+.res-row.r1,.res-row.r4{opacity:.6}
+@keyframes slidein{from{opacity:0;transform:translateX(-30px)}}
+.winner-big{text-align:center}
+.winner-big .crown{font-size:min(10vh,90px);animation:pop .7s}
+.winner-big h2{margin:.5vh 0;font-size:clamp(30px,5.5vw,90px);background:linear-gradient(180deg,#fff7d6,#f5c542 60%,#b8862b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.winner-big p{margin:0;font-size:clamp(16px,2vw,32px);color:#e3e5ff;font-family:var(--mono)}
+#confetti{position:absolute;inset:0;pointer-events:none;z-index:5}
+.stage-only .top,.stage-only main,.stage-only .demo-banner{display:none}
+
+/* responsive */
+@media (max-width:1000px){.grid-play,.sgrid,.wire{grid-template-columns:1fr}}
+@media (max-width:640px){
+  .top-in{padding:10px 16px;flex-wrap:wrap}
+  main{padding:16px 16px 50px}
+  .pills .pill.opt{display:none}
+  .lrow{grid-template-columns:24px 1fr auto 40px;padding:8px 10px}
+  .lrow .pt{display:none}
+  .opts .line{flex-direction:column;gap:1.4vh}
+  .opts .line > .loz.o:only-child{flex:1 1 auto;width:100%}
+  .opts{gap:1.4vh}
+  .st-game{gap:1.6vh}
+  .ring{width:min(11vh,90px);height:min(11vh,90px)}
+  .ring .num{font-size:min(4.4vh,36px)}
+  .loz.q > div{min-height:0;font-size:18px}
+  .loz.o > div{min-height:0}
+  .st-top{padding:1.6vh 4vw}
+  .st-chips{gap:6px;padding:1.2vh 3vw 2vh}
+  .chip{padding:5px 10px}
+  #btSumRow{flex-direction:column;align-items:stretch}
+  .opts .line::before{display:none}
+  .lbrow{grid-template-columns:30px 1fr 50px;}
+  .lbrow .acts{grid-column:1/-1}
+  .field{flex-wrap:wrap}
+  .qtable .qo{display:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#a8781f"/></linearGradient>
+    <symbol id="logo" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#140a4a" stroke="url(#gold)" stroke-width="3"/>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="url(#gold)" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <path d="M36 10 L22 35 H31 L27 54 L43 27 H33 Z" fill="url(#gold)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg class="logo"><use href="#logo"/></svg>
+      <div><b>KBC Buzzer</b><small id="brandSub">Fastest Finger First</small></div>
+    </div>
+    <div class="pills">
+      <span class="pill"><span class="dot" id="hostDot"></span><span id="hostTxt">Connecting…</span></span>
+      <span class="pill opt"><span class="dot" id="buzzDot"></span><span id="buzzTxt">0 buzzers</span></span>
+      <button class="btn sm" id="soundBtn" title="Sound on/off">🔊</button>
+      <button class="btn sm primary" id="screenBtn" title="Big screen (S)">⛶ Big screen</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-tab="play">Play</button>
+    <button class="tab" data-tab="players">Buzzers <span class="count" id="cntPlayers">0</span></button>
+    <button class="tab" data-tab="questions">Questions <span class="count" id="cntQ">0</span></button>
+    <button class="tab" data-tab="scores">Scoreboard</button>
+    <button class="tab" data-tab="logs">Logs</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+</header>
+
+<div class="demo-banner hidden" id="demoBanner"><div>🎮 <b>Demo mode</b>: simulated buzzers so you can try the app without hardware. On the real host this banner disappears.</div></div>
+
+<main>
+  <!-- ======================= PLAY ======================= -->
+  <section id="tab-play">
+    <div class="grid-play">
+      <div class="card">
+        <div class="card-h"><h2>Round control</h2><span class="grow"></span><span class="pill" id="phasePill">Ready</span></div>
+        <ol class="stepper" id="stepper"><li>Ready</li><li>Countdown</li><li>Answering</li><li>Locked</li><li>Revealed</li></ol>
+
+        <label class="lbl">Question</label>
+        <div class="qpick">
+          <button class="btn icon-btn" id="qPrev" title="Previous">‹</button>
+          <select class="in" id="qSel"></select>
+          <button class="btn icon-btn" id="qNext" title="Next (N)">›</button>
+        </div>
+        <div class="qprev" id="qPrevBox"></div>
+
+        <label class="lbl">Correct answer <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:500">· keys 1–4</span></label>
+        <div class="seg" id="ansSeg"><button data-a="0">A</button><button data-a="1">B</button><button data-a="2">C</button><button data-a="3">D</button></div>
+
+        <div class="lim-row">
+          <div><label class="lbl">Time limit (seconds)</label><input class="in" type="number" min="0" max="600" id="limIn" placeholder="20"></div>
+          <div><label class="lbl">Mode</label><select class="in" id="modeQuick"><option value="0">Fastest correct</option><option value="1">Buzzer (1st press)</option></select></div>
+        </div>
+
+        <button class="btn big primary" id="mainBtn">Start round <kbd>Space</kbd></button>
+        <div class="row" style="margin-top:10px">
+          <button class="btn ghost sm grow" id="resetBtn">↺ Reset round</button>
+          <button class="btn ghost sm grow" id="popBtn">⧉ Screen in new window</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-h"><h2>Live answers</h2><span class="grow"></span><span class="muted" id="ansCount">0 / 0 answered</span></div>
+          <div class="timerbar" id="tbar"><div class="fill"></div><span id="tlabel">Waiting to start</span></div>
+          <div class="live" id="live"></div>
+          <div id="winBox"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PLAYERS ======================= -->
+  <section id="tab-players" class="hidden">
+    <div class="ptool">
+      <label class="switch"><input type="checkbox" id="accNew"><i></i><span><b>Accept new buzzers</b><br><span class="muted" style="font-size:13px">Turn off once everyone is paired so no extra devices can join.</span></span></label>
+      <span class="grow"></span>
+      <span class="muted" id="pSummary"></span>
+    </div>
+    <div class="row" id="btSumRow" style="margin-bottom:14px">
+      <div class="btsum grow" id="btSum">Button test: press every button on every buzzer. Tiles light up while held and turn green once they work.</div>
+      <button class="btn sm" id="btReset" title="Start the button test again">↺ Restart button test</button>
+    </div>
+    <div class="pgrid" id="pgrid"></div>
+
+    <div class="wire">
+      <div class="card">
+        <div class="card-h"><h2>Add a buzzer</h2></div>
+        <ol style="margin:0;padding-left:20px;color:var(--muted)">
+          <li>Flash the <b style="color:var(--text)">KBC_Node</b> firmware (same file for every buzzer).</li>
+          <li>Power it on. Its LED double-blinks while it searches.</li>
+          <li>It appears here in a second. Give it a student's name and a color.</li>
+          <li>Press <b style="color:var(--text)">Blink</b> to find which physical buzzer is which.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Buzzer wiring</h2></div>
+        <div class="kv">
+          <span>Button A</span><span>GPIO 32 ↔ GND</span>
+          <span>Button B</span><span>GPIO 33 ↔ GND</span>
+          <span>Button C</span><span>GPIO 25 ↔ GND</span>
+          <span>Button D</span><span>GPIO 26 ↔ GND</span>
+          <span>Status LED</span><span>on-board LED (GPIO 2)</span>
+        </div>
+        <p class="muted" style="margin:12px 0 0;font-size:13px">No resistors needed: internal pull-ups are used.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= QUESTIONS ======================= -->
+  <section id="tab-questions" class="hidden">
+    <div class="row" style="margin-bottom:16px">
+      <button class="btn primary" id="qAdd">＋ Add question</button>
+      <button class="btn" id="qBulk">Paste many</button>
+      <span class="grow"></span>
+      <button class="btn sm" id="qImport">Import JSON</button>
+      <button class="btn sm" id="qExport">Export JSON</button>
+      <input type="file" id="qFile" accept=".json,application/json" class="hidden">
+    </div>
+    <div class="card" style="padding:6px 8px">
+      <table class="qtable"><thead><tr><th>#</th><th>Question</th><th>Answer</th><th>Time</th><th></th></tr></thead><tbody id="qBody"></tbody></table>
+      <div id="qEmpty" class="empty hidden" style="margin:10px"><b>No questions yet</b>Add your own, paste a list, or <a href="#" id="qSample">load 5 sample questions</a>. You can also play "Quick rounds" without any question text.</div>
+    </div>
+  </section>
+
+  <!-- ======================= SCORES ======================= -->
+  <section id="tab-scores" class="hidden">
+    <div class="sgrid">
+      <div class="card">
+        <div class="card-h"><h2>Leaderboard</h2><span class="grow"></span>
+          <span class="muted" style="font-size:13px">Step</span><input class="in" type="number" id="step" value="5" style="width:70px;padding:5px 8px">
+          <button class="btn sm danger" id="scoreReset">Reset scores</button></div>
+        <div class="lb" id="lb"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Round history</h2><span class="grow"></span>
+          <button class="btn sm" id="histCsv">Export CSV</button><button class="btn sm ghost" id="histClear">Clear</button></div>
+        <div id="hist"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SETTINGS ======================= -->
+  <section id="tab-logs" class="hidden">
+    <div class="logbar">
+      <select class="in" id="logSrc" title="Show one device"><option value="*">All devices</option></select>
+      <input class="in" id="logFind" placeholder="Filter text…" style="width:200px">
+      <label class="switch"><input type="checkbox" id="logPause"><i></i><span>Pause</span></label>
+      <span class="grow"></span>
+      <span class="muted" id="logCount" style="font-size:13px"></span>
+      <button class="btn sm" id="logSave">⤓ Download</button>
+      <button class="btn sm danger" id="logClear">Clear</button>
+    </div>
+    <div class="logbox" id="logBox"><div class="logempty">Waiting for log lines…</div></div>
+    <p class="muted" style="font-size:13px;margin:10px 2px 0">Everything the host and each buzzer prints to its serial port, sent over the radio. No USB cable needed. The host keeps the last 220 lines.</p>
+  </section>
+
+  <section id="tab-settings" class="hidden">
+    <div class="sgrid">
+      <div>
+        <div class="card">
+          <div class="card-h"><h2>Game rules</h2><span class="grow"></span><span class="dim" style="font-size:13px">Saved automatically</span></div>
+          <div class="field"><div><div class="t">Winning rule</div><div class="d">Who wins the round</div></div>
+            <select class="in" data-set="mode"><option value="0">Fastest correct answer (KBC)</option><option value="1">Buzzer: first press wins</option></select></div>
+          <div class="field"><div><div class="t">Countdown</div><div class="d">Seconds of "3-2-1" before answering opens (0 = none)</div></div><input class="in" type="number" min="0" max="30" data-set="cd"></div>
+          <div class="field"><div><div class="t">Default time limit</div><div class="d">Seconds to answer (0 = no limit)</div></div><input class="in" type="number" min="0" max="600" data-set="lim"></div>
+          <div class="field"><div><div class="t">Lock when everyone answered</div><div class="d">Ends the round early when every online buzzer has pressed</div></div><label class="switch"><input type="checkbox" data-set="auto"><i></i></label></div>
+          <div class="field"><div><div class="t">False-start penalty</div><div class="d">Pressing during the countdown locks the student out for that round</div></div><label class="switch"><input type="checkbox" data-set="fs"><i></i></label></div>
+          <div class="field"><div><div class="t">Show question during countdown</div><div class="d">Off = everyone sees it at the same moment answering opens</div></div><label class="switch"><input type="checkbox" data-set="sq"><i></i></label></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Points</h2><span class="grow"></span><span class="dim" style="font-size:13px">Fastest-correct mode</span></div>
+          <div class="field"><div><div class="t">Winner (fastest correct)</div></div><input class="in" type="number" data-set="pw"></div>
+          <div class="field"><div><div class="t">Other correct answers</div></div><input class="in" type="number" data-set="pc"></div>
+          <div class="field"><div><div class="t">Wrong answer / false start</div><div class="d">Use a negative number for a penalty</div></div><input class="in" type="number" data-set="px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-h"><h2>Display & sound</h2></div>
+          <div class="field"><div><div class="t">Big-screen title</div></div><input class="in wide" data-set="title" maxlength="60"></div>
+          <div class="field"><div><div class="t">Sound effects</div><div class="d">Played on this computer</div></div><label class="switch"><input type="checkbox" id="sndOn"><i></i></label></div>
+          <div class="field"><div><div class="t">Volume</div></div><input type="range" min="0" max="100" id="sndVol" style="width:160px;accent-color:var(--gold)"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Host Wi-Fi</h2></div>
+          <div class="field"><div><div class="t">Network name</div></div><input class="in wide" id="nAp" maxlength="31"></div>
+          <div class="field"><div><div class="t">Password</div><div class="d">8+ characters. Leave empty to keep the current one.</div></div><input class="in wide" id="nPw" maxlength="63"></div>
+          <div class="field"><div><div class="t">Radio channel</div><div class="d">1–13. Buzzers find the host on any channel.</div></div><input class="in" type="number" min="1" max="13" id="nCh"></div>
+          <div class="field"><div><div class="t">Address name</div><div class="d">Open the app at http://<i id="nHostEx">kbc</i>.local</div></div><input class="in wide" id="nHost" maxlength="24"></div>
+          <div class="field"><div><div class="t">Also join school Wi-Fi <span class="dim">(optional)</span></div><div class="d">Leave empty to keep the host fully standalone</div></div><input class="in wide" id="nSta" placeholder="Wi-Fi name"></div>
+          <div class="field"><div></div><input class="in wide" id="nStaPw" placeholder="Wi-Fi password" type="password"></div>
+          <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" id="netSave">Save & restart host</button></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Device</h2></div>
+          <div class="kv" id="devInfo"></div>
+          <div class="row" style="margin-top:16px"><button class="btn sm" id="devRestart">Restart host</button><span class="grow"></span><button class="btn sm danger" id="devFactory">Factory reset</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= BIG SCREEN ======================= -->
+<div id="stage" class="hidden">
+  <canvas id="confetti"></canvas>
+  <div class="st-top">
+    <svg style="width:44px;height:44px"><use href="#logo"/></svg>
+    <div class="st-title" id="stTitle">Fastest Finger First</div>
+    <div class="st-round" id="stRound"></div>
+    <button class="st-x" id="stClose" title="Close (Esc)">✕</button>
+  </div>
+  <div class="st-body" id="stBody"></div>
+  <div class="st-chips" id="stChips"></div>
+</div>
+
+<!-- modal -->
+<div class="modal hidden" id="modal"><div class="card" id="modalCard"></div></div>
+<div id="toasts"></div>
+
+<script>
+'use strict';
+// ============================================================================
+//  Basics
+// ============================================================================
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const L = 'ABCD';
+const PH = ['Ready', 'Countdown', 'Answering', 'Locked', 'Revealed'];
+const DEMO = location.protocol === 'file:' || /[?&]demo\b/.test(location.search);
+const SCREEN_ONLY = /[?&]screen\b/.test(location.search);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtT = us => (us / 1e6).toFixed(3) + ' s';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('kbc_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('kbc_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.remove(), err ? 4000 : 2200);
+}
+const typing = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+
+// ============================================================================
+//  Demo host (simulates the ESP32 so the UI can be tried without hardware)
+// ============================================================================
+class MockHost {
+  constructor() {
+    const names = ['Aarav', 'Diya', 'Kabir', 'Meera', 'Rohan', 'Saanvi'];
+    const cols = ['#F5B700', '#00B4D8', '#FF5D8F', '#7CD83E', '#B388FF', '#FF8A3D'];
+    this.t0 = performance.now(); this.v = 1; this.phase = 0; this.round = 1;
+    this.cdEnd = 0; this.openAt = 0; this.lockAt = 0; this.limit = 20000; this.correct = -1; this.winner = null;
+    this.q = { i: -1, t: '', o: ['', '', '', ''] };
+    this.set = { mode: 0, cd: 3, lim: 20, auto: 1, fs: 1, sq: 0, pw: 10, pc: 0, px: 0, acc: 1, title: 'Fastest Finger First' };
+    this.net = { ap: 'KBC-Quiz', apIp: '192.168.4.1', ch: 1, apCh: 1, sta: '', staIp: '', host: 'kbc', clients: 1 };
+    this.players = names.map((n, i) => ({ m: '24:6F:28:A1:0' + i + ':' + (16 + i * 23).toString(16).toUpperCase(), no: i + 1, n, c: cols[i],
+      s: 0, on: i < 5 ? 1 : 0, r: -42 - i * 6, fw: 110, a: null, plan: null, b: { k: 0, p: [0, 0, 0, 0], g: i === 2 ? 3 : 0 }, rel: 0 }));
+    Object.assign(this.players[5], { on: 1, bat: 1, fw: 200 });   // demo: one battery (XIAO C6) buzzer
+    this.logs = []; this.lseq = 0; this.nextBtn = 0;
+    this.log('', '[boot] host v1.1.0 ready on channel 1 (demo)');
+    this.players.filter(p => p.on).forEach(p => { this.log(p.m, '[boot] KBC buzzer fw 1.10  MAC ' + p.m); this.log(p.m, '[link] I am player #' + p.no); });
+  }
+  log(m, x) { this.logs.push({ s: ++this.lseq, t: Math.round(this.now()), m, x }); if (this.logs.length > 220) this.logs.shift(); }
+  logsAfter(after) { return { last: this.lseq, now: Math.round(this.now()), lines: this.logs.filter(l => l.s > after).slice(-120) }; }
+  fakeButtons() {
+    const t = this.now();
+    for (const p of this.players) if (p.b.k && t > p.rel) { p.b.k = 0; this.v++; }
+    if (this.phase !== 0 || t < this.nextBtn) return;
+    this.nextBtn = t + 600 + Math.random() * 900;
+    const on = this.players.filter(p => p.on), p = on[Math.floor(Math.random() * on.length)], i = Math.floor(Math.random() * 4);
+    p.b.k = 1 << i; p.b.p[i]++; p.rel = t + 180; this.v++;
+    this.log(p.m, '[btn] ' + L[i] + ' pressed');
+  }
+  now() { return performance.now(); }
+  lock() { if (this.phase !== 1 && this.phase !== 2) return; this.lockAt = this.now(); if (this.phase === 1) this.openAt = this.lockAt; this.phase = 3; this.v++; }
+  tick() {
+    const t = this.now();
+    if (this.phase === 1 && t >= this.cdEnd) { this.openAt = t; this.phase = 2; this.v++; }
+    if (this.phase !== 2) return;
+    const el = t - this.openAt;
+    for (const p of this.players) {
+      if (p.plan && !p.a && el >= p.plan.at) {
+        p.a = { st: 1, c: p.plan.c, t: Math.round(p.plan.at * 1000 + Math.random() * 999), res: 0, pts: 0 };
+        this.v++;
+        this.log(p.m, `[press] answer ${L[p.a.c]}  ${(p.a.t / 1e6).toFixed(3)} s`);
+        this.log('', `[press] ${p.n} -> ${L[p.a.c]}  ${(p.a.t / 1e6).toFixed(3)} s`);
+        if (this.set.mode == 1) { this.lock(); return; }
+      }
+    }
+    if (this.limit && el >= this.limit) return this.lock();
+    const on = this.players.filter(p => p.on);
+    if (this.set.auto && on.length && on.every(p => p.a)) this.lock();
+  }
+  state() {
+    this.tick();
+    this.fakeButtons();
+    const t = this.now(), hide = this.phase === 1 || this.phase === 2;
+    const showQ = this.phase >= 2 || (this.phase === 1 && this.set.sq);
+    return JSON.parse(JSON.stringify({
+      v: this.v, fw: 'demo', up: Math.round((t - this.t0) / 1000), heap: 182340, phase: this.phase, round: this.round,
+      cdLeft: this.phase === 1 ? Math.max(0, Math.round(this.cdEnd - t)) : 0,
+      elapsed: this.phase === 2 ? Math.round(t - this.openAt) : (this.phase >= 3 ? Math.round(this.lockAt - this.openAt) : 0),
+      limit: this.limit, correct: this.phase === 4 ? this.correct : -1, winner: this.phase === 4 ? this.winner : null,
+      q: { i: this.q.i, has: this.q.t ? 1 : 0, t: showQ ? this.q.t : '', o: showQ ? this.q.o : ['', '', '', ''] },
+      players: this.players.map(p => ({ m: p.m, no: p.no, n: p.n, c: p.c, s: p.s, on: p.on, r: p.r, seen: p.bat ? 720000 : p.on ? 300 : 90000, fw: p.fw, b: p.b,
+        bat: p.bat ? 1 : 0, awake: p.bat ? 0 : p.on,
+        a: p.a ? { ...p.a, c: hide ? -1 : p.a.c } : null })),
+      set: this.set, net: this.net
+    }));
+  }
+  find(m) { const p = this.players.find(x => x.m === m); if (!p) throw new Error('Unknown buzzer'); return p; }
+  call(path, d) {
+    const n = k => Number(d[k]);
+    switch (path) {
+      case '/api/start': {
+        if (this.phase === 1 || this.phase === 2) throw new Error('A round is already running');
+        this.round++; this.q = { i: n('qi'), t: d.q || '', o: [d.o0 || '', d.o1 || '', d.o2 || '', d.o3 || ''] };
+        this.log('', `[round ${this.round}] started`);
+        this.limit = (d.lim != null ? n('lim') : this.set.lim) * 1000; this.correct = d.ans != null ? n('ans') : -1; this.winner = null;
+        const span = Math.min(this.limit || 15000, 12000) * 0.75;
+        for (const p of this.players) {
+          p.a = null;
+          const ok = this.correct >= 0 && Math.random() < 0.65;
+          const avail = this.q.t ? filledOpts(this.q.o) : [0, 1, 2, 3];
+          p.plan = p.on && Math.random() < 0.9 ? { at: 900 + Math.random() * span, c: ok ? this.correct : avail[Math.floor(Math.random() * avail.length)] } : null;
+        }
+        if (this.set.cd > 0) { this.phase = 1; this.cdEnd = this.now() + this.set.cd * 1000; } else { this.phase = 2; this.openAt = this.now(); }
+        break;
+      }
+      case '/api/lock': this.lock(); break;
+      case '/api/reveal': {
+        const ans = d.ans != null ? n('ans') : this.correct;
+        if (this.set.mode == 0 && !(ans >= 0 && ans <= 3)) throw new Error('Choose the correct answer first');
+        this.lock(); if (this.phase !== 3) throw new Error('Nothing to reveal');
+        this.correct = ans; let w = null;
+        for (const p of this.players) {
+          if (!p.a) continue;
+          p.a.pts = 0;
+          if (this.set.mode == 1) { p.a.res = 0; if (!w || p.a.t < w.a.t) w = p; continue; }
+          p.a.res = p.a.c === ans ? 2 : 1;
+          if (p.a.res === 2 && (!w || p.a.t < w.a.t)) w = p;
+        }
+        if (w) w.a.res = 3;
+        if (this.set.mode == 0) for (const p of this.players) if (p.a) {
+          p.a.pts = p.a.res === 3 ? +this.set.pw : p.a.res === 2 ? +this.set.pc : +this.set.px; p.s += p.a.pts;
+        }
+        this.winner = w ? w.m : null; this.phase = 4;
+        this.log('', w ? `[round ${this.round}] winner: ${w.n} (${(w.a.t / 1e6).toFixed(3)} s)` : `[round ${this.round}] revealed, no winner`);
+        break;
+      }
+      case '/api/reset': this.phase = 0; this.round++; this.players.forEach(p => { p.a = null; p.plan = null; }); this.q = { i: -1, t: '', o: ['', '', '', ''] }; break;
+      case '/api/player': { const p = this.find(d.m); if (d.n) p.n = d.n.slice(0, 23); if (d.c) p.c = d.c.toUpperCase(); break; }
+      case '/api/identify': this.find(d.m); break;
+      case '/api/remove': this.players = this.players.filter(p => p.m !== d.m); break;
+      case '/api/score': { const p = this.find(d.m); if (d.set != null) p.s = n('set'); else p.s += n('d'); break; }
+      case '/api/scores/reset': this.players.forEach(p => p.s = 0); break;
+      case '/api/btnreset': this.players.forEach(p => { if (!d.m || p.m === d.m) p.b = { k: 0, p: [0, 0, 0, 0], g: 0 }; }); break;
+      case '/api/logs/clear': this.logs = []; this.log('', '[log] cleared'); break;
+      case '/api/settings': for (const k in d) this.set[k] = k === 'title' ? d[k] : Number(d[k]); break;
+      case '/api/net': case '/api/restart': case '/api/factory': throw new Error('Not available in demo mode');
+      default: throw new Error('Unknown ' + path);
+    }
+    this.v++;
+    return { ok: true };
+  }
+}
+const mock = DEMO ? new MockHost() : null;
+
+// ============================================================================
+//  Host API
+// ============================================================================
+// fetch with a timeout, so one lost request never blocks the page
+function fetchT(url, opts = {}, ms = 4000) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
+  return fetch(url, { ...opts, signal: ac.signal }).finally(() => clearTimeout(t));
+}
+async function api(path, data = {}) {
+  if (mock) return mock.call(path, data);
+  const r = await fetchT(path, { method: 'POST', body: new URLSearchParams(data) }, 6000);
+  const j = await r.json().catch(() => ({ ok: false, msg: 'Bad response' }));
+  if (!j.ok) throw new Error(j.msg || 'Request failed');
+  return j;
+}
+async function act(path, data, okMsg) {
+  try { const r = await api(path, data); if (okMsg) toast(okMsg); poll(); return r; }
+  catch (e) { toast(e.name === 'AbortError' ? 'The host did not answer. Try again.' : e.message, true); }
+}
+async function loadBank() {
+  if (mock) return store.get('demoBank', null) ?? SAMPLE;
+  const r = await fetchT('/api/questions', { cache: 'no-store' }, 8000);
+  return r.ok ? r.json() : [];
+}
+async function saveBank() {
+  renderBank(); renderQSel();
+  if (mock) return store.set('demoBank', bank);
+  try {
+    const r = await fetchT('/api/questions', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(bank) }, 10000);
+    const j = await r.json(); if (!j.ok) throw new Error(j.msg);
+  } catch (e) { toast('Could not save questions: ' + e.message, true); }
+}
+
+// ============================================================================
+//  Sound (synthesised, works offline)
+// ============================================================================
+const snd = {
+  ctx: null, on: store.get('snd', true), vol: store.get('vol', 70),
+  init() { if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  tone(f, d, type = 'sine', at = 0, g = 1) {
+    if (!this.on || !this.ctx) return;
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    const peak = 0.25 * g * this.vol / 100;
+    v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(peak, t + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + d + 0.05);
+  },
+  tick() { this.tone(660, .09, 'square', 0, .5); },
+  go() { this.tone(880, .35, 'sawtooth', 0, .5); this.tone(1320, .4, 'triangle', .02, .8); },
+  blip() { this.tone(1250, .06, 'triangle', 0, .6); },
+  hurry() { this.tone(1000, .05, 'square', 0, .35); },
+  lock() { this.tone(330, .25, 'sawtooth', 0, .5); this.tone(220, .4, 'sawtooth', .12, .5); },
+  reveal() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .28, 'triangle', i * .11, .8)); },
+  win() { [784, 988, 1175, 1568, 1175, 1568].forEach((f, i) => this.tone(f, .3, 'square', .5 + i * .13, .35)); }
+};
+document.addEventListener('pointerdown', () => snd.init(), { once: false });
+document.addEventListener('keydown', () => snd.init());
+
+// ============================================================================
+//  App state
+// ============================================================================
+const SAMPLE = [
+  { q: 'Which planet is known as the Red Planet?', o: ['Venus', 'Mars', 'Jupiter', 'Mercury'], a: 1, t: 0 },
+  { q: 'Who wrote the Indian national anthem "Jana Gana Mana"?', o: ['Bankim Chandra Chatterjee', 'Sarojini Naidu', 'Rabindranath Tagore', 'Muhammad Iqbal'], a: 2, t: 0 },
+  { q: 'What is the chemical symbol for gold?', o: ['Go', 'Gd', 'Ag', 'Au'], a: 3, t: 0 },
+  { q: 'How many bits are there in one byte?', o: ['8', '4', '16', '10'], a: 0, t: 0 },
+  { q: 'Which gas do plants absorb from the air for photosynthesis?', o: ['Oxygen', 'Nitrogen', 'Carbon dioxide', 'Hydrogen'], a: 2, t: 0 },
+];
+let S = null, prevS = null, recvAt = 0, failCount = 0, lastV = -1, phaseChangedAt = 0;
+let bank = [];
+let sel = store.get('sel', 0);      // -1 = quick round
+let selAns = -1;
+let tab = 'play';
+let roundHist = store.get('hist', []);
+let recordedRound = null;
+let stageOpen = SCREEN_ONLY;
+let lastSec = null;
+
+// ============================================================================
+//  Polling
+// ============================================================================
+let polling = false;
+async function poll() {
+  if (polling) return; polling = true;
+  try {
+    const st = mock ? mock.state() : await (await fetchT('/api/state', { cache: 'no-store' })).json();
+    failCount = 0;
+    prevS = S; S = st; recvAt = performance.now();
+    onState();
+  } catch (e) {
+    if (++failCount === 3) render();
+  } finally { polling = false; }
+}
+
+function onState() {
+  const p = prevS;
+  if (p) {
+    if (p.phase !== S.phase || p.round !== S.round) {
+      phaseChangedAt = performance.now();
+      if (S.phase === 2) snd.go();
+      if (S.phase === 3) snd.lock();
+      if (S.phase === 4) { snd.reveal(); if (S.winner) { snd.win(); confetti(); } recordHistory(); }
+    }
+    const cnt = s => s.players.filter(x => x.a).length;
+    if (S.round === p.round && S.phase === 2 && cnt(S) > cnt(p)) snd.blip();
+  }
+  if (S.v !== lastV) { lastV = S.v; render(); }
+  else renderHeader();
+}
+
+// ============================================================================
+//  Rendering
+// ============================================================================
+const onlineCount = () => S ? S.players.filter(p => p.on).length : 0;
+
+function renderHeader() {
+  const off = failCount >= 3 || !S;
+  $('#hostDot').className = 'dot ' + (off ? 'bad' : 'ok');
+  $('#hostTxt').textContent = off ? 'Host offline' : (DEMO ? 'Demo host' : 'Host connected');
+  if (!S) return;
+  const on = onlineCount(), tot = S.players.length;
+  $('#buzzDot').className = 'dot ' + (tot === 0 ? '' : on === tot ? 'ok' : 'warn');
+  $('#buzzTxt').textContent = `${on}/${tot} buzzers online`;
+  $('#cntPlayers').textContent = tot;
+  $('#brandSub').textContent = S.set.title;
+  $('#soundBtn').textContent = snd.on ? '🔊' : '🔇';
+}
+
+function render() {
+  renderHeader();
+  if (!S) return;
+  renderPlay();
+  if (tab === 'players') renderPlayers();
+  if (tab === 'scores') renderScores();
+  if (tab === 'logs' && logDirty) renderLogs();
+  if (tab === 'settings') renderSettings();
+  if (stageOpen) renderStage(true);
+}
+
+// ---------------- Play tab ----------------
+function curQ() { return sel >= 0 && sel < bank.length ? bank[sel] : null; }
+
+function renderQSel() {
+  const s = $('#qSel');
+  s.innerHTML = '<option value="-1">⚡ Quick round (no question text)</option>' +
+    bank.map((q, i) => `<option value="${i}">${i + 1}. ${esc(q.q.length > 60 ? q.q.slice(0, 60) + '…' : q.q)}</option>`).join('');
+  if (sel >= bank.length) sel = bank.length ? 0 : -1;
+  s.value = sel;
+  $('#cntQ').textContent = bank.length;
+  renderQPrev();
+}
+function selectQ(i, keepAns) {
+  sel = Math.max(-1, Math.min(bank.length - 1, i)); store.set('sel', sel);
+  $('#qSel').value = sel;
+  const q = curQ();
+  if (!keepAns) selAns = q ? q.a : -1;
+  $('#limIn').value = q && q.t ? q.t : '';
+  renderQPrev(); renderSeg();
+}
+// Indexes of options that have text (2, 3 or 4 options per question).
+const filledOpts = o => [0, 1, 2, 3].filter(i => String((o || [])[i] || '').trim());
+// Letters the teacher may pick as correct for the selected question (all 4 in a quick round).
+const allowedAns = () => { const q = curQ(); return q ? filledOpts(q.o) : [0, 1, 2, 3]; };
+
+function renderQPrev() {
+  const q = curQ(), box = $('#qPrevBox');
+  if (!q) { box.innerHTML = '<div class="muted" style="font-size:14px">Show the question any way you like (board, slides). Students answer A–D on their buzzers. Pick the correct answer below before revealing.</div>'; return; }
+  box.innerHTML = `<div class="qt">${esc(q.q)}</div><ol>${filledOpts(q.o).map(i => `<li class="${i === selAns ? 'ok' : ''}"><b>${L[i]}</b>${esc(q.o[i])}</li>`).join('')}</ol>`;
+}
+function renderSeg() {
+  const ok = allowedAns();
+  if (selAns >= 0 && !ok.includes(selAns)) selAns = -1;
+  $$('#ansSeg button').forEach(b => {
+    const a = +b.dataset.a;
+    b.classList.toggle('on', a === selAns);
+    b.disabled = !ok.includes(a);
+    b.style.opacity = b.disabled ? .3 : '';
+  });
+  renderQPrev();
+}
+
+function mainAction() {
+  if (!S) return;
+  if (performance.now() - phaseChangedAt < 1000) return;   // avoid a double-press skipping a screen
+  const ph = S.phase;
+  if (ph === 0) return startRound();
+  if (ph === 1 || ph === 2) return act('/api/lock');
+  if (ph === 3) {
+    if (S.set.mode == 0 && selAns < 0) { toast('Pick the correct answer (A–D) first', true); $('#ansSeg').classList.remove('flash'); void $('#ansSeg').offsetWidth; $('#ansSeg').classList.add('flash'); return; }
+    return act('/api/reveal', selAns >= 0 ? { ans: selAns } : {});
+  }
+  if (ph === 4) {
+    if (sel >= 0 && sel < bank.length - 1) selectQ(sel + 1);
+    else if (sel < 0) { selAns = -1; renderSeg(); }
+    return act('/api/reset');
+  }
+}
+function startRound() {
+  const q = curQ();
+  const lim = $('#limIn').value !== '' ? +$('#limIn').value : (q && q.t ? q.t : S.set.lim);
+  const d = { lim, qi: sel };
+  if (q) { d.q = q.q; q.o.forEach((o, i) => d['o' + i] = o); }
+  if (selAns >= 0) d.ans = selAns;
+  act('/api/start', d);
+}
+
+function renderPlay() {
+  const ph = S.phase;
+  $('#phasePill').textContent = PH[ph];
+  $$('#stepper li').forEach((li, i) => { li.className = i < ph ? 'done' : i === ph ? 'on' : ''; });
+  const mb = $('#mainBtn');
+  const labels = ['▶ Start round', '■ Lock answers now', '■ Lock answers now', '★ Reveal answer', '→ Next question'];
+  const cls = ['primary', 'warn', 'warn', 'go', 'primary'];
+  mb.innerHTML = labels[ph] + '<kbd>Space</kbd>';
+  mb.className = 'btn big ' + cls[ph];
+  const live = ph === 1 || ph === 2;
+  $('#qSel').disabled = $('#qPrev').disabled = $('#qNext').disabled = $('#limIn').disabled = live;
+  $('#modeQuick').value = S.set.mode;
+  $('#modeQuick').disabled = live;
+  $('#popBtn').classList.toggle('hidden', DEMO);
+
+  // live list
+  const ps = [...S.players];
+  const key = p => {
+    if (!p.a) return p.on ? 6 : 7;
+    if (p.a.st === 2) return 5;
+    if (ph === 4) return { 3: 0, 2: 1, 1: 3, 0: 2 }[p.a.res] ?? 4;
+    return 0;
+  };
+  ps.sort((a, b) => key(a) - key(b) || (a.a && b.a ? a.a.t - b.a.t : a.no - b.no));
+  const answered = S.players.filter(p => p.a).length;
+  $('#ansCount').textContent = `${answered} / ${onlineCount()} answered`;
+  if (!ps.length) {
+    $('#live').innerHTML = `<div class="empty"><b>No buzzers yet</b>Power on a student buzzer. It joins automatically${S.set.acc ? '' : ' (turn on "Accept new buzzers" first)'}.</div>`;
+  } else {
+    let rank = 0;
+    $('#live').innerHTML = ps.map(p => {
+      const a = p.a;
+      let st, chip = '', cls = 'lrow', rk = '', pts = '';
+      if (!a) { st = p.on ? (ph === 2 ? 'thinking…' : ph === 1 ? 'get ready' : 'ready') : 'offline'; if (!p.on) cls += ' off'; }
+      else if (a.st === 2) { st = 'false start'; cls += ' r4'; chip = '✕'; }
+      else {
+        st = fmtT(a.t); cls += ' ans'; rk = ++rank;
+        chip = a.c >= 0 ? L[a.c] : '✓';
+        if (ph === 4) cls += ' r' + a.res;
+      }
+      let chCls = 'ch';
+      if (ph === 4 && a && a.c >= 0 && S.correct >= 0) chCls += a.c === S.correct ? ' ok' : ' no';
+      if (a && a.pts) pts = `<span class="pt ${a.pts > 0 ? 'pos' : 'neg'}">${a.pts > 0 ? '+' : ''}${a.pts}</span>`;
+      if (ph === 4 && a && a.res === 3) rk = '🏆';
+      return `<div class="${cls}"><div class="rk">${rk}</div><div class="nm"><i class="sw" style="--pc:${p.c}"></i><span>${esc(p.n)}</span></div>
+        <div class="st">${st}</div><div class="${chCls}">${chip}</div><div class="pt">${pts}</div></div>`;
+    }).join('');
+  }
+
+  // winner box
+  const w = ph === 4 && S.winner ? S.players.find(p => p.m === S.winner) : null;
+  if (w) {
+    const award = S.set.mode == 1 ? `<span class="grow"></span><button class="btn sm go" data-award="${w.m}" data-d="${S.set.pw}">✓ Correct +${S.set.pw}</button><button class="btn sm danger" data-award="${w.m}" data-d="${S.set.px}">✕ Wrong ${S.set.px}</button>` : '';
+    $('#winBox').innerHTML = `<div class="winbox"><span class="trophy">🏆</span><div><b>${esc(w.n)}</b><div class="muted mono">${fmtT(w.a.t)}${S.set.mode == 1 ? ' · buzzed first' : ' · fastest correct'}</div></div>${award}</div>`;
+  } else if (ph === 4) {
+    $('#winBox').innerHTML = `<div class="winbox"><span class="trophy">😶</span><div><b>No winner this round</b><div class="muted">Nobody got it right in time.</div></div></div>`;
+  } else $('#winBox').innerHTML = '';
+}
+
+function animate() {
+  if (S) {
+    const ph = S.phase, dt = performance.now() - recvAt;
+    const bar = $('#tbar'), fill = bar.querySelector('.fill'), lab = $('#tlabel');
+    bar.classList.remove('low', 'cd');
+    if (ph === 1) {
+      const left = Math.max(0, S.cdLeft - dt), tot = S.set.cd * 1000 || 1;
+      bar.classList.add('cd'); fill.style.width = (100 * (1 - left / tot)) + '%';
+      lab.textContent = `Starting in ${Math.ceil(left / 1000)}…`;
+      const sec = Math.ceil(left / 1000); if (sec !== lastSec && sec > 0) { lastSec = sec; snd.tick(); }
+    } else if (ph === 2) {
+      const el = S.elapsed + dt;
+      if (S.limit) {
+        const left = Math.max(0, S.limit - el);
+        fill.style.width = (100 * left / S.limit) + '%';
+        if (left < 5000) bar.classList.add('low');
+        lab.textContent = `${(left / 1000).toFixed(1)} s left`;
+        const sec = Math.ceil(left / 1000); if (sec !== lastSec && sec <= 5 && sec > 0) { lastSec = sec; snd.hurry(); }
+      } else { fill.style.width = '100%'; lab.textContent = `${(el / 1000).toFixed(1)} s: no time limit`; }
+    } else {
+      lastSec = null;
+      fill.style.width = ph >= 3 ? '0%' : '0%';
+      lab.textContent = ph === 3 ? `Locked after ${(S.elapsed / 1000).toFixed(1)} s` : ph === 4 ? 'Revealed' : 'Waiting to start';
+    }
+    if (stageOpen) animateStage(dt);
+  }
+  requestAnimationFrame(animate);
+}
+
+// ---------------- Players tab ----------------
+function bars(r) { const n = r > -55 ? 4 : r > -65 ? 3 : r > -75 ? 2 : 1; return `<span class="bars">${[5, 8, 11, 13].map((h, i) => `<i style="height:${h}px" class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`; }
+function ago(ms) { if (ms < 0) return 'never'; if (ms < 4000) return 'now'; const s = ms / 1000; return s < 60 ? Math.round(s) + ' s ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
+// ---- button test ----
+const btnOf = p => p.b || { k: 0, p: [0, 0, 0, 0], g: 0 };
+function tilesHtml(p) {
+  const b = btnOf(p);
+  return [0, 1, 2, 3].map(i => {
+    const held = b.k & (1 << i), n = b.p[i];
+    return `<div class="bt ${held ? 'held' : n ? 'ok' : ''}"><b>${L[i]}</b><small>${n ? n + '×' : '–'}</small></div>`;
+  }).join('');
+}
+function warnHtml(p) {
+  const g = btnOf(p).g;
+  return g ? `⚠ ${g} contact glitch${g > 1 ? 'es' : ''}: a wire or button is loose` : '';
+}
+function updateTiles() {
+  for (const p of S.players) {
+    const t = document.querySelector(`[data-bt="${p.m}"]`); if (t) t.innerHTML = tilesHtml(p);
+    const w = document.querySelector(`[data-bw="${p.m}"]`); if (w) { w.textContent = warnHtml(p); w.classList.toggle('hidden', !w.textContent); }
+  }
+  const on = S.players.filter(p => p.on);
+  const done = on.filter(p => btnOf(p).p.every(n => n > 0)).length;
+  const bad = on.filter(p => btnOf(p).g > 0).length;
+  const sum = $('#btSum');
+  sum.classList.toggle('good', on.length > 0 && done === on.length && !bad);
+  sum.textContent = !on.length ? 'Button test: power on a buzzer to test its buttons.'
+    : done === on.length && !bad ? `✓ All buttons work on all ${on.length} online buzzer${on.length > 1 ? 's' : ''}.`
+    : `Button test: ${done} of ${on.length} online buzzers fully tested${bad ? ` · ${bad} with loose contacts` : ''}. Press every button: tiles light up while held and turn green once they work.`;
+}
+
+// Status line for a buzzer card. Battery buzzers sleep between presses.
+function statusTxt(p) {
+  if (!p.bat) return p.on ? 'Online' : 'Offline · ' + ago(p.seen);
+  if (!p.on) return '🔋 Battery · not heard from for ' + ago(p.seen).replace(' ago', '');
+  return p.awake ? '🔋 Battery · awake' : '🔋 Battery · sleeping, ready · seen ' + ago(p.seen);
+}
+
+function renderPlayers() {
+  const g = $('#pgrid');
+  if (g.contains(document.activeElement)) { updateTiles(); return; }      // don't disturb typing
+  $('#accNew').checked = !!S.set.acc;
+  const on = onlineCount();
+  $('#pSummary').textContent = `${on} online · ${S.players.length} paired`;
+  if (!S.players.length) { g.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>No buzzers paired yet</b>Power on a buzzer near the host. It shows up here automatically.</div>`; return; }
+  g.innerHTML = [...S.players].sort((a, b) => a.no - b.no).map(p => `
+    <div class="pcard ${p.on ? '' : 'off'}" style="--pc:${p.c}">
+      <div class="pc-top"><input type="color" value="${p.c}" data-col="${p.m}" title="Color">
+        <input class="in" value="${esc(p.n)}" data-name="${p.m}" maxlength="23" title="Click to rename"><span class="pc-no">#${p.no}</span></div>
+      <div class="pc-meta"><span class="dot ${p.on ? 'ok' : 'bad'}"></span><span class="pc-st">${statusTxt(p)}</span>
+        ${(p.bat ? p.awake : p.on) ? bars(p.r) + `<span class="mono">${p.r} dBm</span>` : ''}</div>
+      <div class="pc-meta mono" style="margin-top:-6px">${p.m} · score ${p.s}${p.fw ? ' · fw ' + (p.fw / 100).toFixed(2) : ''}</div>
+      <div class="btest" data-bt="${p.m}">${tilesHtml(p)}</div>
+      <div class="btwarn ${warnHtml(p) ? '' : 'hidden'}" data-bw="${p.m}">${warnHtml(p)}</div>
+      <div class="pc-act"><button class="btn sm" data-blink="${p.m}" ${p.on && !p.bat ? '' : 'disabled'} title="${p.bat ? 'Battery buzzers sleep: press any of its buttons and watch its LED instead' : 'Flash the LED on this buzzer'}">💡 Blink</button><span class="grow"></span>
+        <button class="btn sm danger" data-remove="${p.m}">Remove</button></div>
+    </div>`).join('');
+  updateTiles();
+}
+
+// ---------------- Logs tab ----------------
+let logLines = [], logLast = 0, logPolling = false, logDirty = true, hostNowAt = { host: 0, local: 0 };
+async function pollLogs() {
+  if (logPolling || $('#logPause').checked) return;
+  logPolling = true;
+  try {
+    const j = mock ? mock.logsAfter(logLast) : await (await fetchT('/api/logs?after=' + logLast, { cache: 'no-store' })).json();
+    if (j.last < logLast) { logLines = []; logLast = 0; }        // host restarted or log cleared
+    hostNowAt = { host: j.now, local: Date.now() };
+    if (j.lines.length) { logLines.push(...j.lines); if (logLines.length > 1000) logLines = logLines.slice(-1000); logDirty = true; }
+    logLast = j.last;
+    if (logDirty && tab === 'logs') renderLogs();
+  } catch (e) {} finally { logPolling = false; }
+}
+function srcOf(m) {
+  if (!m) return { n: 'Host', c: '#f5c542' };
+  const p = S && S.players.find(x => x.m === m);
+  return p ? { n: p.n, c: p.c } : { n: m.slice(-8), c: '#cfd2ff' };
+}
+function logTime(t) {
+  const d = new Date(hostNowAt.local - (hostNowAt.host - t));
+  return d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
+function renderLogs() {
+  logDirty = false;
+  // device filter options
+  const sel = $('#logSrc'), cur = sel.value;
+  const opts = '<option value="*">All devices</option><option value="">Host</option>' +
+    (S ? [...S.players].sort((a, b) => a.no - b.no).map(p => `<option value="${p.m}">${esc(p.n)}</option>`).join('') : '');
+  if (sel.dataset.o !== opts) { sel.innerHTML = opts; sel.dataset.o = opts; sel.value = cur; if (sel.value !== cur) sel.value = '*'; }
+  const f = $('#logFind').value.trim().toLowerCase(), src = sel.value;
+  const rows = logLines.filter(l => (src === '*' || l.m === src) && (!f || l.x.toLowerCase().includes(f) || srcOf(l.m).n.toLowerCase().includes(f)));
+  $('#logCount').textContent = `${rows.length} line${rows.length === 1 ? '' : 's'}`;
+  const box = $('#logBox'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.innerHTML = rows.length ? rows.slice(-500).map(l => {
+    const s = srcOf(l.m), x = l.x;
+    const cls = /WARNING|glitch|lost host|no reply|FALSE START/i.test(x) ? 'warn' : /WON|winner/i.test(x) ? 'win' : /fail|error/i.test(x) ? 'err' : '';
+    return `<div class="lg ${cls}" style="--pc:${s.c}"><span class="lt">${logTime(l.t)}</span><span class="ls">${esc(s.n)}</span><span class="lx">${esc(x)}</span></div>`;
+  }).join('') : '<div class="logempty">No log lines yet.</div>';
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// ---------------- Questions tab ----------------
+function renderBank() {
+  $('#qEmpty').classList.toggle('hidden', bank.length > 0);
+  $('#cntQ').textContent = bank.length;
+  $('#qBody').innerHTML = bank.map((q, i) => `<tr>
+    <td class="qn">${i + 1}</td>
+    <td><div>${esc(q.q)}</div><div class="qo">${filledOpts(q.o).map(j => `<b>${L[j]}</b> ${esc(q.o[j])}`).join(' &nbsp;·&nbsp; ')}</div></td>
+    <td class="qa">${q.a >= 0 ? L[q.a] : '–'}</td><td class="dim">${q.t ? q.t + ' s' : 'default'}</td>
+    <td class="acts"><button class="btn sm" data-qplay="${i}" title="Use in Play">▶</button> <button class="btn sm" data-qedit="${i}">Edit</button>
+      <button class="btn sm ghost" data-qup="${i}" title="Move up">↑</button> <button class="btn sm danger" data-qdel="${i}">✕</button></td></tr>`).join('');
+}
+function openModal(html) { $('#modalCard').innerHTML = html; $('#modal').classList.remove('hidden'); const f = $('#modalCard input,#modalCard textarea'); if (f) f.focus(); }
+function closeModal() { $('#modal').classList.add('hidden'); }
+function editQ(i) {
+  const q = i >= 0 ? bank[i] : { q: '', o: ['', '', '', ''], a: 0, t: 0 };
+  openModal(`<div class="card-h"><h2>${i >= 0 ? 'Edit question ' + (i + 1) : 'New question'}</h2></div>
+    <label class="lbl">Question</label><textarea class="in" id="eQ" style="font-family:var(--font);font-size:15px;min-height:70px">${esc(q.q)}</textarea>
+    <label class="lbl">Options <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:500">· 2 to 4 · tick the correct one · leave C/D empty for fewer options</span></label>
+    ${[0, 1, 2, 3].map(j => `<div class="opt-in"><b>${L[j]}</b><input class="in" id="eO${j}" value="${esc(q.o[j] || '')}" placeholder="${j < 2 ? 'Option ' + L[j] : 'Option ' + L[j] + ' (optional)'}"><input type="radio" name="eA" value="${j}" ${q.a === j ? 'checked' : ''}></div>`).join('')}
+    <label class="lbl">Time limit (seconds, empty = default)</label><input class="in" type="number" id="eT" min="0" max="600" value="${q.t || ''}" style="width:140px">
+    <div class="row" style="margin-top:20px"><span class="grow"></span><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="eSave">Save</button></div>`);
+  $('#eSave').onclick = () => {
+    const nq = { q: $('#eQ').value.trim(), o: [0, 1, 2, 3].map(j => $('#eO' + j).value.trim()), a: +(($('input[name=eA]:checked') || {}).value ?? 0), t: +$('#eT').value || 0 };
+    if (!nq.q) return toast('Type the question', true);
+    if (filledOpts(nq.o).length < 2) return toast('Give at least 2 options', true);
+    if (!nq.o[nq.a]) return toast('The correct answer must be one of the filled options', true);
+    if (i >= 0) bank[i] = nq; else bank.push(nq);
+    closeModal(); saveBank(); toast('Question saved');
+  };
+}
+function bulkQ() {
+  openModal(`<div class="card-h"><h2>Paste many questions</h2></div>
+    <p class="muted" style="margin:0 0 10px;font-size:14px">One question per line, parts separated by <b>|</b>:<br><span class="mono" style="color:var(--text)">Question | A | B | (C) | (D) | Correct letter | seconds (optional)</span><br>2 to 4 options. Examples:</p>
+    <textarea class="in" id="bulkIn" style="min-height:200px" placeholder="Capital of India? | Mumbai | New Delhi | Kolkata | Chennai | B | 15&#10;Is the Sun a star? | Yes | No | A&#10;Largest planet? | Earth | Jupiter | Mars | B"></textarea>
+    <div class="row" style="margin-top:16px"><span class="muted" id="bulkInfo"></span><span class="grow"></span><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="bulkSave">Add questions</button></div>`);
+  $('#bulkSave').onclick = () => {
+    const out = [], bad = [];
+    $('#bulkIn').value.split(/\r?\n/).forEach((line, n) => {
+      if (!line.trim()) return;
+      const p = line.split('|').map(s => s.trim());
+      let t = 0;
+      if (p.length > 3 && /^\d+$/.test(p[p.length - 1])) t = +p.pop();     // optional seconds
+      const a = L.indexOf((p.pop() || '').toUpperCase());                    // correct letter
+      const q = p.shift(), opts = p.filter(Boolean);
+      if (!q || opts.length < 2 || opts.length > 4 || a < 0 || a >= opts.length) return bad.push(n + 1);
+      out.push({ q, o: [0, 1, 2, 3].map(i => opts[i] || ''), a, t });
+    });
+    if (bad.length) return toast('Check line ' + bad.join(', ') + ': question, 2–4 options, then the correct letter', true);
+    bank.push(...out); closeModal(); saveBank(); toast(out.length + ' questions added');
+  };
+}
+
+// ---------------- Scores tab ----------------
+function renderScores() {
+  const ps = [...S.players].sort((a, b) => b.s - a.s || a.no - b.no);
+  const max = Math.max(1, ...ps.map(p => Math.abs(p.s)));
+  const medal = ['🥇', '🥈', '🥉'];
+  $('#lb').innerHTML = ps.length ? ps.map((p, i) => `<div class="lbrow" style="--pc:${p.c}">
+      <div class="rk">${p.s > 0 && i < 3 ? medal[i] : i + 1}</div>
+      <div><b>${esc(p.n)}</b><div class="bar" style="width:${Math.max(2, 100 * Math.abs(p.s) / max)}%"></div></div>
+      <div class="sc">${p.s}</div>
+      <div class="acts row" style="gap:6px"><button class="btn sm" data-sc="${p.m}" data-sign="-1">−</button><button class="btn sm" data-sc="${p.m}" data-sign="1">＋</button></div>
+    </div>`).join('') : '<div class="empty">No buzzers yet.</div>';
+  $('#hist').innerHTML = roundHist.length ? `<table class="qtable"><thead><tr><th>Round</th><th>Question</th><th>Ans</th><th>Winner</th></tr></thead><tbody>${
+    roundHist.slice().reverse().map(h => `<tr><td class="qn">${h.n}</td><td>${esc(h.q || 'Quick round')}<div class="qo">${h.answered} answered · ${h.correctCount} correct</div></td><td class="qa">${h.ans >= 0 ? L[h.ans] : '–'}</td>
+      <td>${h.winner ? `<b>${esc(h.winner)}</b><div class="qo mono">${fmtT(h.time)}</div>` : '<span class="dim">none</span>'}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty"><b>No rounds yet</b>Results are listed here after each reveal.</div>';
+}
+function recordHistory() {
+  const w = S.players.find(p => p.m === S.winner);
+  const q = S.q.i >= 0 && bank[S.q.i] ? bank[S.q.i].q : S.q.t;
+  if (recordedRound === S.round) return;                 // already saved this round (this session)
+  recordedRound = S.round;
+  roundHist.push({ round: S.round, n: roundHist.length + 1, q, ans: S.correct, winner: w ? w.n : '', time: w ? w.a.t : 0,
+    answered: S.players.filter(p => p.a).length, correctCount: S.players.filter(p => p.a && (p.a.res === 2 || p.a.res === 3)).length, at: new Date().toISOString() });
+  if (roundHist.length > 300) roundHist.shift();
+  store.set('hist', roundHist);
+}
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+// ---------------- Settings tab ----------------
+let netFilled = false;
+function renderSettings() {
+  $$('[data-set]').forEach(el => {
+    if (el === document.activeElement) return;
+    const v = S.set[el.dataset.set];
+    if (el.type === 'checkbox') el.checked = !!v; else if (String(el.value) !== String(v)) el.value = v;
+  });
+  $('#sndOn').checked = snd.on; $('#sndVol').value = snd.vol;
+  if (!netFilled) {
+    netFilled = true;
+    $('#nAp').value = S.net.ap; $('#nCh').value = S.net.apCh; $('#nHost').value = S.net.host; $('#nSta').value = S.net.sta;
+    $('#nPw').placeholder = 'unchanged';
+  }
+  $('#nHostEx').textContent = $('#nHost').value || 'kbc';
+  const d = S.net;
+  $('#devInfo').innerHTML = `<span>Firmware</span><span>${esc(S.fw)}</span><span>Uptime</span><span>${fmtUp(S.up)}</span>
+    <span>Free memory</span><span>${Math.round(S.heap / 1024)} KB</span><span>Wi-Fi</span><span>${esc(d.ap)} · ${d.clients} device(s) connected</span>
+    <span>Address</span><span>http://${esc(d.apIp)} · http://${esc(d.host)}.local</span><span>Radio channel</span><span>${d.ch}</span>
+    ${d.sta ? `<span>School Wi-Fi</span><span>${esc(d.sta)} · ${d.staIp ? 'http://' + esc(d.staIp) : 'not connected'}</span>` : ''}`;
+}
+const fmtUp = s => s < 3600 ? Math.floor(s / 60) + ' min' : Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min';
+
+// ============================================================================
+//  BIG SCREEN
+// ============================================================================
+function setStage(open) {
+  stageOpen = open;
+  $('#stage').classList.toggle('hidden', !open);
+  if (open) renderStage(true);
+}
+let stageKey = '';
+function renderStage(force) {
+  if (!S) return;
+  const ph = S.phase;
+  $('#stTitle').textContent = S.set.title;
+  $('#stRound').textContent = ph === 0 ? `${onlineCount()} players ready` : (S.q.i >= 0 ? `Question ${S.q.i + 1}` : 'Quick round');
+  $('#stClose').classList.toggle('hidden', SCREEN_ONLY);
+
+  // chips
+  const shown = S.players.filter(p => p.on || p.a);
+  $('#stChips').innerHTML = shown.map(p => {
+    let c = 'chip';
+    if (p.a) c += ph === 4 ? ' r' + (p.a.st === 2 ? 4 : p.a.res) : (p.a.st === 2 ? ' r4' : ' ans');
+    return `<span class="${c}" style="--pc:${p.c}"><i></i>${esc(p.n)}${p.a && ph === 4 && p.a.res === 3 ? ' 👑' : ''}</span>`;
+  }).join('');
+
+  // body: only rebuild when the "scene" changes so CSS animations don't restart
+  const key = [ph, S.round, S.q.t, S.correct, S.winner, S.set.title, S.set.mode, ph === 0 ? S.players.length > 0 : '',
+    ph === 4 ? S.players.map(p => p.a ? p.a.res + ':' + p.a.c : '').join() : ''].join('|');
+  if (key === stageKey && !force) return;
+  if (key === stageKey && $('#stBody').childElementCount) return;
+  stageKey = key;
+  const B = $('#stBody');
+  if (ph === 0) {
+    B.innerHTML = `<div class="st-splash"><svg class="logo-big"><use href="#logo"/></svg><h1>${esc(S.set.title)}</h1>
+      <p>${S.players.length ? 'Get ready… keep your fingers on the buttons!' : 'Waiting for buzzers to join'}</p></div>`;
+    return;
+  }
+  if (ph === 1 && !S.set.sq) { B.innerHTML = `<div style="text-align:center"><div class="st-cd" id="stCd">3</div><div class="st-cdlabel">Get ready</div></div>`; return; }
+  if (ph === 4 && S.set.mode == 1) {
+    const w = S.players.find(p => p.m === S.winner);
+    B.innerHTML = w ? `<div class="winner-big"><div class="crown">🔔</div><h2>${esc(w.n)}</h2><p>buzzed first · ${fmtT(w.a.t)}</p></div>`
+      : `<div class="winner-big"><h2>Nobody buzzed</h2></div>`;
+    return;
+  }
+  if (ph === 4) { B.innerHTML = resultsHtml(); return; }
+  B.innerHTML = gameHtml();
+}
+function optsHtml() {
+  const q = S.q, has = !!q.t;
+  const idx = has ? filledOpts(q.o) : [0, 1, 2, 3];          // only the options that were given
+  const cls = i => 'loz o' + (has ? '' : ' only') + (S.phase === 4 && S.correct >= 0 ? (i === S.correct ? ' correct' : ' dimmed') : '');
+  const one = i => `<div class="${cls(i)}"><div><b>${L[i]}${has ? ':' : ''}</b>${has ? esc(q.o[i]) : ''}</div></div>`;
+  const rows = [];
+  for (let k = 0; k < idx.length; k += 2) rows.push(idx.slice(k, k + 2));
+  return `<div class="opts">${rows.map(r => `<div class="line">${r.map(one).join('')}</div>`).join('')}</div>`;
+}
+function gameHtml() {
+  const ph = S.phase, q = S.q;
+  const qtext = q.t ? esc(q.t) : (S.set.mode == 1 ? 'Press any button to buzz in!' : 'Lock in your answer on the buzzer!');
+  const ring = `<div class="ring" id="stRing"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="0"/></svg><div class="num" id="stNum"></div></div>`;
+  const banner = ph === 3 ? `<div class="st-banner">⏱ Answers locked</div>` : ph === 1 ? `<div class="st-banner" id="stCdBanner">Starting…</div>` : '';
+  return `<div class="st-game">${ph === 3 ? banner : ring}${ph === 1 ? banner : ''}<div class="line"><div class="loz q"><div>${qtext}</div></div></div>${optsHtml()}</div>`;
+}
+function resultsHtml() {
+  const ps = S.players.filter(p => p.a);
+  const ord = { 3: 0, 2: 1, 1: 2, 4: 3, 0: 4 };
+  ps.sort((a, b) => ord[a.a.st === 2 ? 4 : a.a.res] - ord[b.a.st === 2 ? 4 : b.a.res] || a.a.t - b.a.t);
+  const rows = ps.slice(0, 8).map((p, i) => {
+    const r = p.a.st === 2 ? 4 : p.a.res;
+    return `<div class="res-row r${r}" style="--pc:${p.c};animation-delay:${0.25 + i * 0.12}s"><div class="rk">${r === 3 ? '🏆' : i + 1}</div>
+      <div class="n"><i></i>${esc(p.n)}</div><div class="c">${p.a.c >= 0 ? L[p.a.c] : ''}</div><div class="t">${r === 4 ? 'early' : fmtT(p.a.t)}</div></div>`;
+  }).join('');
+  const w = S.players.find(p => p.m === S.winner);
+  const head = w ? `<div class="winner-big"><h2 style="font-size:clamp(26px,4vw,64px)">🏆 ${esc(w.n)}</h2><p>fastest correct answer · ${fmtT(w.a.t)}</p></div>`
+    : `<div class="winner-big"><h2 style="font-size:clamp(24px,3.4vw,54px)">No correct answer this time</h2></div>`;
+  const q = S.q;
+  const ans = S.correct >= 0 ? `<div class="line" style="max-width:900px"><div class="loz o correct" style="flex:none;min-width:min(60vw,560px)"><div style="justify-content:center"><b>${L[S.correct]}${q.t ? ':' : ''}</b>${q.t ? esc(q.o[S.correct]) : ''}</div></div></div>` : '';
+  return `<div class="st-game" style="gap:2.2vh">${head}${ans}<div class="res">${rows || '<div class="st-banner" style="text-align:center">No answers</div>'}</div></div>`;
+}
+function animateStage(dt) {
+  const ph = S.phase;
+  if (ph === 1) {
+    const left = Math.max(0, S.cdLeft - dt), n = Math.max(1, Math.ceil(left / 1000));
+    const cd = $('#stCd'); if (cd && cd.textContent != n) { cd.textContent = n; cd.style.animation = 'none'; void cd.offsetWidth; cd.style.animation = ''; }
+    const b = $('#stCdBanner'); if (b) b.textContent = `Starting in ${n}…`;
+  }
+  if (ph === 2) {
+    const ring = $('#stRing'), num = $('#stNum'); if (!ring) return;
+    const el = S.elapsed + dt, fg = ring.querySelector('.fg');
+    if (S.limit) {
+      const left = Math.max(0, S.limit - el);
+      fg.style.strokeDashoffset = 326.7 * (1 - left / S.limit);
+      ring.classList.toggle('low', left < 5000);
+      num.innerHTML = Math.ceil(left / 1000) + '<small>SEC</small>';
+    } else { fg.style.strokeDashoffset = 0; num.innerHTML = Math.floor(el / 1000) + '<small>SEC</small>'; }
+  }
+}
+
+// confetti
+function confetti() {
+  if (!stageOpen) return;
+  const c = $('#confetti'), x = c.getContext('2d');
+  c.width = innerWidth; c.height = innerHeight;
+  const cols = ['#f5c542', '#ffe08a', '#22c55e', '#38bdf8', '#ff5d8f', '#b388ff', '#fff'];
+  const ps = Array.from({ length: 220 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * .5, vx: (Math.random() - .5) * 3,
+    vy: 2 + Math.random() * 4, s: 5 + Math.random() * 7, r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[Math.floor(Math.random() * cols.length)] }));
+  const end = performance.now() + 4500;
+  (function f() {
+    x.clearRect(0, 0, c.width, c.height);
+    for (const p of ps) { p.x += p.vx; p.y += p.vy; p.vy += .03; p.r += p.vr; x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); x.restore(); }
+    if (performance.now() < end) requestAnimationFrame(f); else x.clearRect(0, 0, c.width, c.height);
+  })();
+}
+
+// ============================================================================
+//  Events
+// ============================================================================
+function showTab(t) {
+  tab = t;
+  $$('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $$('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + t));
+  if (t === 'logs') { logDirty = true; pollLogs(); }
+  if (S) render();
+}
+setInterval(() => { if (tab === 'logs') pollLogs(); }, 800);   // only while the Logs tab is open
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) showTab(b.dataset.tab); });
+$('#mainBtn').onclick = mainAction;
+$('#resetBtn').onclick = () => act('/api/reset');
+$('#qSel').onchange = e => selectQ(+e.target.value);
+$('#qPrev').onclick = () => selectQ(sel - 1);
+$('#qNext').onclick = () => selectQ(sel + 1);
+$('#ansSeg').onclick = e => { const b = e.target.closest('button'); if (b) { selAns = +b.dataset.a; renderSeg(); } };
+$('#modeQuick').onchange = e => act('/api/settings', { mode: e.target.value }, 'Mode changed');
+$('#screenBtn').onclick = () => { snd.init(); setStage(true); };
+$('#popBtn').onclick = () => window.open(location.pathname + '?screen', 'kbcscreen', 'width=1280,height=720');
+$('#stClose').onclick = () => setStage(false);
+$('#soundBtn').onclick = () => { snd.on = !snd.on; store.set('snd', snd.on); snd.init(); renderHeader(); };
+$('#sndOn').onchange = e => { snd.on = e.target.checked; store.set('snd', snd.on); renderHeader(); };
+$('#sndVol').oninput = e => { snd.vol = +e.target.value; store.set('vol', snd.vol); };
+$('#sndVol').onchange = () => { snd.init(); snd.blip(); };
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button,[data-close],a');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.close !== undefined) closeModal();
+  if (d.blink) act('/api/identify', { m: d.blink }, 'Buzzer is blinking');
+  if (d.remove && confirm('Remove this buzzer? It re-joins if it is powered on while "Accept new buzzers" is on.')) act('/api/remove', { m: d.remove }, 'Removed');
+  if (d.award) act('/api/score', { m: d.award, d: d.d }, 'Score updated');
+  if (d.sc) act('/api/score', { m: d.sc, d: (+$('#step').value || 1) * +d.sign });
+  if (d.qedit) editQ(+d.qedit);
+  if (d.qdel && confirm('Delete question ' + (+d.qdel + 1) + '?')) { bank.splice(+d.qdel, 1); saveBank(); }
+  if (d.qup && +d.qup > 0) { const i = +d.qup; [bank[i - 1], bank[i]] = [bank[i], bank[i - 1]]; saveBank(); }
+  if (d.qplay) { selectQ(+d.qplay); showTab('play'); }
+});
+$('#modal').addEventListener('mousedown', e => { if (e.target.id === 'modal') closeModal(); });
+
+// button test + logs
+$('#btReset').onclick = () => act('/api/btnreset', {}, 'Button test restarted');
+$('#logSrc').onchange = renderLogs;
+$('#logFind').oninput = renderLogs;
+$('#logPause').onchange = () => { if (!$('#logPause').checked) pollLogs(); };
+$('#logClear').onclick = () => confirm('Clear the log on the host?') && act('/api/logs/clear').then(() => { logLines = []; logLast = 0; logDirty = true; pollLogs(); });
+$('#logSave').onclick = () => download(`kbc-log-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt`,
+  logLines.map(l => `${logTime(l.t)}  ${srcOf(l.m).n.padEnd(14)}  ${l.x}`).join('\n'), 'text/plain');
+
+// rename / recolor buzzers
+$('#pgrid').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.name) act('/api/player', { m: t.dataset.name, n: t.value.trim() }, 'Renamed');
+  if (t.dataset.col) act('/api/player', { m: t.dataset.col, c: t.value }, 'Color changed');
+});
+$('#pgrid').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('#accNew').onchange = e => act('/api/settings', { acc: e.target.checked ? 1 : 0 }, e.target.checked ? 'New buzzers can join' : 'Pairing locked');
+
+// settings (auto-save)
+$$('[data-set]').forEach(el => el.addEventListener('change', () => {
+  const v = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value;
+  act('/api/settings', { [el.dataset.set]: v }, 'Saved');
+}));
+$('#nHost').oninput = () => { $('#nHostEx').textContent = $('#nHost').value || 'kbc'; };
+$('#netSave').onclick = () => {
+  const pw = $('#nPw').value;
+  const d = { ap: $('#nAp').value.trim(), pw: pw, ch: $('#nCh').value, host: $('#nHost').value.trim(), sta: $('#nSta').value.trim(), stapw: $('#nStaPw').value };
+  if (!confirm('Save Wi-Fi settings and restart the host? You will need to reconnect this computer to "' + d.ap + '".')) return;
+  act('/api/net', d, 'Saved. Host is restarting…');
+};
+$('#devRestart').onclick = () => confirm('Restart the host? The current round is lost.') && act('/api/restart', {}, 'Restarting…');
+$('#devFactory').onclick = () => confirm('Factory reset erases buzzer names, scores, questions and settings. Continue?') && confirm('Are you sure?') && act('/api/factory', {}, 'Resetting…');
+
+// questions
+$('#qAdd').onclick = () => editQ(-1);
+$('#qBulk').onclick = bulkQ;
+$('#qSample').onclick = e => { e.preventDefault(); bank.push(...SAMPLE.map(q => ({ ...q, o: [...q.o] }))); saveBank(); toast('Sample questions added'); };
+$('#qExport').onclick = () => download('kbc-questions.json', JSON.stringify(bank, null, 2), 'application/json');
+$('#qImport').onclick = () => $('#qFile').click();
+$('#qFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const arr = JSON.parse(await f.text());
+    if (!Array.isArray(arr)) throw new Error('not a list');
+    const ok = arr.filter(q => q && q.q && Array.isArray(q.o) && q.o.length === 4).map(q => ({ q: String(q.q), o: q.o.map(String), a: +q.a || 0, t: +q.t || 0 }));
+    if (!ok.length) throw new Error('no valid questions');
+    const replace = bank.length && confirm(`Import ${ok.length} questions.\nOK = replace current list, Cancel = add to it.`);
+    bank = replace ? ok : bank.concat(ok); saveBank(); toast(ok.length + ' questions imported');
+  } catch (err) { toast('Import failed: ' + err.message, true); }
+  e.target.value = '';
+};
+
+// scores & history
+$('#scoreReset').onclick = () => confirm('Reset every score to 0?') && act('/api/scores/reset', {}, 'Scores reset');
+$('#histClear').onclick = () => { if (confirm('Clear round history?')) { roundHist = []; store.set('hist', roundHist); renderScores(); } };
+$('#histCsv').onclick = () => {
+  const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+  const rows = [['round', 'question', 'answer', 'winner', 'time_s', 'answered', 'correct', 'at']].concat(roundHist.map(h => [h.n, h.q, h.ans >= 0 ? L[h.ans] : '', h.winner, h.time ? (h.time / 1e6).toFixed(3) : '', h.answered, h.correctCount, h.at]));
+  download('kbc-history.csv', rows.map(r => r.map(q).join(',')).join('\n'), 'text/csv');
+};
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (!$('#modal').classList.contains('hidden')) return closeModal(); if (stageOpen && !SCREEN_ONLY) return setStage(false); }
+  if (typing() || !$('#modal').classList.contains('hidden') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (SCREEN_ONLY) return;
+  if (e.code === 'Space') { e.preventDefault(); mainAction(); }
+  else if (/^[1-4]$/.test(e.key)) {
+    const a = +e.key - 1;
+    if (!allowedAns().includes(a)) return toast('This question has no option ' + L[a], true);
+    selAns = a; renderSeg(); toast('Correct answer: ' + L[selAns]);
+  }
+  else if (e.key === 's' || e.key === 'S') setStage(!stageOpen);
+  else if ((e.key === 'n' || e.key === 'N') && S && (S.phase === 0 || S.phase === 4)) selectQ(sel + 1);
+  else if (e.key === 'f' || e.key === 'F') { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
+});
+
+// ============================================================================
+//  Boot
+// ============================================================================
+(async function boot() {
+  if (DEMO) $('#demoBanner').classList.remove('hidden');
+  if (SCREEN_ONLY) { document.body.classList.add('stage-only'); setStage(true); }
+  try { bank = await loadBank(); if (!Array.isArray(bank)) bank = []; } catch (e) { bank = []; }
+  renderQSel(); renderBank(); selectQ(sel);
+  await poll();
+  setInterval(poll, 200);
+  setInterval(() => { if (S) render(); }, 1000);   // refresh "last seen", online status
+  requestAnimationFrame(animate);
+  if (DEMO && SHOT) demoShot(SHOT);
+})();
+
+// ============================================================================
+//  Demo screenshot scenes (only with ?demo&shot=NAME) - used for the docs
+// ============================================================================
+const SHOT = new URLSearchParams(location.search).get('shot');
+async function demoShot(name) {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  document.querySelector('#demoBanner').classList.add('hidden');
+  document.body.classList.add('shot');                 // finish CSS animations at once
+  bank = SAMPLE.map(q => ({ ...q, o: [...q.o] })).concat([
+    { q: 'Which is the largest planet in our solar system?', o: ['Earth', 'Jupiter', 'Mars', ''], a: 1, t: 0 },
+    { q: 'Is the Sun a star?', o: ['Yes', 'No', '', ''], a: 0, t: 0 }]);
+  renderQSel(); renderBank();
+  mock.set.cd = 0;
+  const play = async (i, fast) => {
+    selectQ(i);
+    const q = bank[i], d = { lim: 20, qi: i, q: q.q, ans: q.a };
+    q.o.forEach((o, k) => d['o' + k] = o);
+    await act('/api/start', d);
+    if (fast) mock.players.forEach(p => { if (p.plan) p.plan.at = 400 + Math.random() * 2200; });
+  };
+  const reveal = async () => { await act('/api/lock'); await wait(300); await act('/api/reveal', { ans: selAns }); await wait(400); };
+  switch (name) {
+    case 'play': await play(0, true); await wait(1500); break;
+    case 'stage-question': await play(5, false); setStage(true); await wait(1200); break;
+    case 'stage-results': await play(0, true); await wait(3500); await reveal(); setStage(true); await wait(1500); break;
+    case 'stage-splash': setStage(true); await wait(800); break;
+    case 'players': showTab('players'); await wait(9000); break;
+    case 'questions': showTab('questions'); await wait(500); break;
+    case 'scores': for (const i of [0, 2, 3]) { await play(i, true); await wait(3000); await reveal(); await act('/api/reset'); await wait(300); }
+      showTab('scores'); await wait(600); break;
+    case 'logs': await play(2, true); await wait(3000); await reveal(); showTab('logs'); await wait(1500); break;
+    case 'settings': showTab('settings'); await wait(800); break;
+  }
+  document.title = 'SHOT-READY';
+}
+</script>
+</body>
+</html>

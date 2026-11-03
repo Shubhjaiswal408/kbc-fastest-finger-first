@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 500" width="680" height="500" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6b6894"/></marker></defs>
+  <rect x="0" y="0" width="680" height="500" rx="18" fill="#ffffff"/>
+  <text x="170" y="34" text-anchor="middle" font-size="15" font-weight="600" fill="#0f6e56">Buzzer</text>
+  <text x="510" y="34" text-anchor="middle" font-size="15" font-weight="600" fill="#534ab7">Host</text>
+  <g font-size="14">
+    <rect x="60" y="50" width="220" height="56" rx="8" fill="#e1f5ee" stroke="#0f6e56"/><text x="170" y="74" text-anchor="middle" font-weight="600" fill="#04342c">Powers on</text><text x="170" y="94" text-anchor="middle" font-size="12" fill="#0f6e56">LED double-blinks</text>
+    <rect x="400" y="50" width="220" height="56" rx="8" fill="#eeedfe" stroke="#534ab7"/><text x="510" y="74" text-anchor="middle" font-weight="600" fill="#26215c">Host is running</text><text x="510" y="94" text-anchor="middle" font-size="12" fill="#534ab7">"Accept new buzzers" on</text>
+    <rect x="60" y="140" width="220" height="56" rx="8" fill="#e1f5ee" stroke="#0f6e56"/><text x="170" y="164" text-anchor="middle" font-weight="600" fill="#04342c">Shouts HELLO</text><text x="170" y="184" text-anchor="middle" font-size="12" fill="#0f6e56">on channels 1 to 13</text>
+    <rect x="400" y="140" width="220" height="56" rx="8" fill="#eeedfe" stroke="#534ab7"/><text x="510" y="164" text-anchor="middle" font-weight="600" fill="#26215c">Hears HELLO</text><text x="510" y="184" text-anchor="middle" font-size="12" fill="#534ab7">checks pairing switch</text>
+    <rect x="400" y="230" width="220" height="56" rx="8" fill="#eeedfe" stroke="#534ab7"/><text x="510" y="254" text-anchor="middle" font-weight="600" fill="#26215c">Adds "Player N"</text><text x="510" y="274" text-anchor="middle" font-size="12" fill="#534ab7">saves name + colour</text>
+    <rect x="400" y="320" width="220" height="56" rx="8" fill="#eeedfe" stroke="#534ab7"/><text x="510" y="344" text-anchor="middle" font-weight="600" fill="#26215c">Sends WELCOME</text><text x="510" y="364" text-anchor="middle" font-size="12" fill="#534ab7">player no. + real channel</text>
+    <rect x="60" y="320" width="220" height="56" rx="8" fill="#e1f5ee" stroke="#0f6e56"/><text x="170" y="344" text-anchor="middle" font-weight="600" fill="#04342c">Joins host's channel</text><text x="170" y="364" text-anchor="middle" font-size="12" fill="#0f6e56">remembers the host</text>
+    <rect x="60" y="410" width="220" height="56" rx="8" fill="#e1f5ee" stroke="#0f6e56"/><text x="170" y="434" text-anchor="middle" font-weight="600" fill="#04342c">Paired</text><text x="170" y="454" text-anchor="middle" font-size="12" fill="#0f6e56">tiny blink every 3 s</text>
+    <rect x="400" y="410" width="220" height="56" rx="8" fill="#eeedfe" stroke="#534ab7"/><text x="510" y="434" text-anchor="middle" font-weight="600" fill="#26215c">Appears in Buzzers tab</text><text x="510" y="454" text-anchor="middle" font-size="12" fill="#534ab7">rename, Blink, colour</text>
+  </g>
+  <g stroke="#6b6894" stroke-width="1.6" fill="none">
+    <line x1="170" y1="106" x2="170" y2="136" marker-end="url(#a)"/>
+    <line x1="510" y1="106" x2="510" y2="136" marker-end="url(#a)"/>
+    <line x1="280" y1="168" x2="396" y2="168" marker-end="url(#a)"/>
+    <line x1="510" y1="196" x2="510" y2="226" marker-end="url(#a)"/>
+    <line x1="510" y1="286" x2="510" y2="316" marker-end="url(#a)"/>
+    <line x1="400" y1="348" x2="284" y2="348" marker-end="url(#a)"/>
+    <line x1="170" y1="376" x2="170" y2="406" marker-end="url(#a)"/>
+    <line x1="510" y1="376" x2="510" y2="406" marker-end="url(#a)"/>
+  </g>
+</svg>
