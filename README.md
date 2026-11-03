@@ -70,4 +70,4 @@ docs/              user guide, hardware guide, images
 
 ## License
 
-No license file yet. Add one (for example MIT) if you want others to reuse the code.
+[MIT](LICENSE): free to use, modify and share, including in your own projects.
