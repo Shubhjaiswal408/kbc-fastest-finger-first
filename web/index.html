@@ -827,7 +827,8 @@ function renderHeader() {
   if (!S) return;
   const on = onlineCount(), tot = S.players.length;
   $('#buzzDot').className = 'dot ' + (tot === 0 ? '' : on === tot ? 'ok' : 'warn');
-  $('#buzzTxt').textContent = `${on}/${tot} buzzers online`;
+  const asleep = S.players.filter(p => p.bat && p.on && !p.awake).length;
+  $('#buzzTxt').textContent = `${on - asleep}/${tot} online` + (asleep ? ` · ${asleep} asleep` : '');
   $('#cntPlayers').textContent = tot;
   $('#brandSub').textContent = S.set.title;
   $('#soundBtn').textContent = snd.on ? '🔊' : '🔇';
@@ -944,7 +945,7 @@ function renderPlay() {
     $('#live').innerHTML = ps.map(p => {
       const a = p.a;
       let st, chip = '', cls = 'lrow', rk = '', pts = '';
-      if (!a) { st = p.on ? (ph === 2 ? 'thinking…' : ph === 1 ? 'get ready' : 'ready') : 'offline'; if (!p.on) cls += ' off'; }
+      if (!a) { st = p.on ? (ph === 2 ? 'thinking…' : ph === 1 ? 'get ready' : p.bat && !p.awake ? 'asleep 🔋' : 'ready') : 'offline'; if (!p.on) cls += ' off'; }
       else if (a.st === 2) { st = 'false start'; cls += ' r4'; chip = '✕'; }
       else {
         st = fmtT(a.t); cls += ' ans'; rk = ++rank;
@@ -1034,7 +1035,7 @@ function updateTiles() {
 function statusTxt(p) {
   if (!p.bat) return p.on ? 'Online' : 'Offline · ' + ago(p.seen);
   if (!p.on) return '🔋 Battery · not heard from for ' + ago(p.seen).replace(' ago', '');
-  return p.awake ? '🔋 Battery · awake' : '🔋 Battery · sleeping, ready · seen ' + ago(p.seen);
+  return p.awake ? '🔋 Battery · awake' : '🔋 Battery · asleep · last heard ' + ago(p.seen);
 }
 
 function renderPlayers() {
@@ -1048,7 +1049,7 @@ function renderPlayers() {
     <div class="pcard ${p.on ? '' : 'off'}" style="--pc:${p.c}">
       <div class="pc-top"><input type="color" value="${p.c}" data-col="${p.m}" title="Color">
         <input class="in" value="${esc(p.n)}" data-name="${p.m}" maxlength="23" title="Click to rename"><span class="pc-no">#${p.no}</span></div>
-      <div class="pc-meta"><span class="dot ${p.on ? 'ok' : 'bad'}"></span><span class="pc-st">${statusTxt(p)}</span>
+      <div class="pc-meta"><span class="dot ${p.bat && p.on && !p.awake ? 'warn' : p.on ? 'ok' : 'bad'}"></span><span class="pc-st">${statusTxt(p)}</span>
         ${(p.bat ? p.awake : p.on) ? bars(p.r) + `<span class="mono">${p.r} dBm</span>` : ''}</div>
       <div class="pc-meta mono" style="margin-top:-6px">${p.m} · score ${p.s}${p.fw ? ' · fw ' + (p.fw / 100).toFixed(2) : ''}</div>
       <div class="btest" data-bt="${p.m}">${tilesHtml(p)}</div>

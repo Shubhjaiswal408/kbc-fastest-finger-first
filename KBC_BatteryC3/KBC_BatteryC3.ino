@@ -46,8 +46,11 @@ static const gpio_num_t BTN[4] = {GPIO_NUM_0, GPIO_NUM_1, GPIO_NUM_3, GPIO_NUM_4
 #define LED_PIN          8           // SuperMini blue LED
 #define LED_ON_LEVEL     LOW         // lights when the pin is LOW
 #define HEARTBEAT_MIN    60          // check in with the host every N minutes (0 = never)
-#define POWERON_AWAKE_MS 8000        // stay awake after power-on/reset (time to upload firmware)
-#define FW_VERSION       201         // 2.01 (battery, ESP32-C3)
+#define POWERON_AWAKE_MS 15000       // after power-on: wiring check + time to upload firmware
+#define FW_VERSION       202         // 2.02 (battery, ESP32-C3)
+// Many C3 SuperMini boards have a badly tuned antenna: Wi-Fi fails at full
+// transmit power. 8.5 dBm is the usual fix (and draws less battery current).
+#define TX_POWER         WIFI_POWER_8_5dBm
 // ----------------------------------------------------------------------------
 
 #define STATE_MAGIC 0x4B424333UL
@@ -128,6 +131,7 @@ static void onRecv(const esp_now_recv_info_t *info, const uint8_t *d, int len) {
 // ============================================================================
 static void radioUp() {
   WiFi.mode(WIFI_STA);
+  WiFi.setTxPower(TX_POWER);
   esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_get_mac(WIFI_IF_STA, myMac);
   setChannel(R.ch >= 1 && R.ch <= 13 ? R.ch : 1);
@@ -241,6 +245,21 @@ static void goSleep(uint64_t timerUs) {
   esp_deep_sleep_start();
 }
 
+static const char *resetName() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:  return "power-on";
+    case ESP_RST_BROWNOUT: return "BROWNOUT (batteries weak or no 470 uF capacitor)";
+    case ESP_RST_SW:       return "software";
+    case ESP_RST_PANIC:    return "crash";
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:      return "watchdog";
+    case ESP_RST_EXT:      return "reset button";
+    case ESP_RST_USB:      return "USB";
+    default:               return "other";
+  }
+}
+
 static uint64_t heartbeatUs() { return HEARTBEAT_MIN ? (uint64_t)HEARTBEAT_MIN * 60ULL * 1000000ULL : 0; }
 
 // ============================================================================
@@ -249,7 +268,13 @@ static uint64_t heartbeatUs() { return HEARTBEAT_MIN ? (uint64_t)HEARTBEAT_MIN *
 static void onButtonWake(uint64_t ext1) {
   int choice = -1;
   for (int i = 0; i < 4; i++) if (ext1 & (1ULL << BTN[i])) { choice = i; break; }
-  if (choice < 0) { R.glitches++; goSleep(heartbeatUs()); }
+  if (choice < 0) {                               // woke up, but no pin flagged
+    R.glitches++;
+    radioUp();
+    if (findHost(800, false)) { sendButtons(); sendLog("[wake] woke by a button but no pin was flagged (mask 0x%llx)", (unsigned long long)ext1); }
+    radioDown();
+    goSleep(heartbeatUs());
+  }
 
   R.presses[choice]++;
   uint16_t seq = ++R.seq;
@@ -321,20 +346,46 @@ static void onPowerOn() {
   char s[18];
   sprintf(s, "%02X:%02X:%02X:%02X:%02X:%02X", myMac[0], myMac[1], myMac[2], myMac[3], myMac[4], myMac[5]);
   Serial.printf("MAC %s  fw %u.%02u\n", s, FW_VERSION / 100, FW_VERSION % 100);
-  bool ok = findHost(POWERON_AWAKE_MS - 1000, true);
+  bool ok = findHost(7000, true);
+  char pins[8];
+  for (int i = 0; i < 4; i++) pins[i] = digitalRead(BTN[i]) == HIGH ? 'H' : 'L';
+  pins[4] = 0;
   if (ok) {
     sendButtons();
-    sendLog("[boot] battery buzzer fw %u.%02u  MAC %s  channel %u  wake delay %lu us", FW_VERSION / 100, FW_VERSION % 100,
-            s, R.ch, (unsigned long)R.wakeLatUs);
-    radioDown();
+    sendLog("[boot] battery buzzer fw %u.%02u  MAC %s  channel %u  wake delay %lu us  reset: %s  pins A-D: %s",
+            FW_VERSION / 100, FW_VERSION % 100, s, R.ch, (unsigned long)R.wakeLatUs, resetName(), pins);
+    for (int i = 0; i < 4; i++) if (pins[i] == 'L') sendLog("[btn] WARNING: %c reads pressed - wiring short or wrong legs of the button?", 'A' + i);
     blink(2, 400, 200);
   } else {
+    Serial.printf("[boot] reset: %s  pins A-D: %s\n", resetName(), pins);
     Serial.println("[link] host not found - will try again on the next press");
-    radioDown();
     blink(5, 50, 50);
   }
-  // Stay awake a little so new firmware can be uploaded right after a reset.
-  while (millis() < POWERON_AWAKE_MS) { led((millis() % 1000) < 30); delay(20); }
+
+  // Wiring check: until POWERON_AWAKE_MS every press flashes the LED and is
+  // reported to the host (Buzzers tab tiles + Logs). Also time to upload firmware.
+  bool prev[4];
+  for (int i = 0; i < 4; i++) prev[i] = digitalRead(BTN[i]) == LOW;
+  if (ok) sendLog("[check] press each button now (wiring check for %u s)", (unsigned)((POWERON_AWAKE_MS - millis()) / 1000));
+  while (millis() < POWERON_AWAKE_MS) {
+    bool any = false;
+    for (int i = 0; i < 4; i++) {
+      bool down = digitalRead(BTN[i]) == LOW;
+      if (down && !prev[i]) {
+        delay(20);
+        if (digitalRead(BTN[i]) == LOW) {
+          R.presses[i]++;
+          if (ok) { sendButtons(); sendLog("[check] %c works", 'A' + i); }
+          else Serial.printf("[check] %c works\n", 'A' + i);
+        }
+      }
+      prev[i] = down;
+      any |= down;
+    }
+    led(any || (millis() % 1000) < 30);
+    delay(5);
+  }
+  radioDown();
 
   // Measure this board's wake-up delay once: sleep 0.3 s on a timer and see how
   // late setup() starts. A button wake-up takes the same path.
