@@ -32,6 +32,7 @@ buzzer with four buttons (**A B C D**). The **fastest correct answer wins**, tim
 | Host (one) | Any ESP32 dev board | [`KBC_Host`](KBC_Host) |
 | Buzzer, USB powered | Any ESP32 dev board + 4 buttons | [`KBC_Node`](KBC_Node) |
 | Buzzer, battery (beta) | Seeed XIAO ESP32-C6 + 4 buttons + 2 x AA | [`KBC_BatteryC6`](KBC_BatteryC6) |
+| Buzzer, battery (beta) | ESP32-C3 SuperMini + 4 buttons + 2-3 x AA | [`KBC_BatteryC3`](KBC_BatteryC3) |
 
 ## Quick start
 
@@ -55,6 +56,7 @@ it runs with simulated buzzers.
 KBC_Host/          host firmware (game, radio, web server, embedded web app)
 KBC_Node/          USB-powered buzzer firmware
 KBC_BatteryC6/     low-power battery buzzer firmware (XIAO ESP32-C6, beta)
+KBC_BatteryC3/     low-power battery buzzer firmware (ESP32-C3 SuperMini, beta)
 web/index.html     the web app source (single file, works offline)
 tools/embed.ps1    packs web/index.html into KBC_Host/web_index.h (gzip)
 docs/              user guide, hardware guide, images
@@ -67,6 +69,7 @@ docs/              user guide, hardware guide, images
 | Host + USB buzzers | Tested on real hardware (3 boards): pairing, rounds, winners, button test, logs |
 | Web app | Tested in Chrome/Edge, laptop and phone sizes |
 | Battery buzzer (XIAO C6) | **Beta:** firmware builds and pairs; the full press-to-answer path and real battery life still need measuring |
+| Battery buzzer (C3 SuperMini) | **Beta:** firmware builds and uploads; pairing, presses and battery life still need testing |
 
 ## License
 

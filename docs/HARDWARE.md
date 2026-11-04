@@ -3,6 +3,7 @@
 - [Parts](#parts)
 - [USB buzzer wiring (ESP32 dev board)](#usb-buzzer-wiring-esp32-dev-board)
 - [Battery buzzer wiring (XIAO ESP32-C6, beta)](#battery-buzzer-wiring-xiao-esp32-c6-beta)
+- [Battery buzzer wiring (ESP32-C3 SuperMini, beta)](#battery-buzzer-wiring-esp32-c3-supermini-beta)
 - [Flashing the firmware](#flashing-the-firmware)
 - [Editing the web app](#editing-the-web-app)
 - [Troubleshooting](#troubleshooting)
@@ -83,6 +84,41 @@ To check: measure the sleep current with a multimeter in series with the battery
 It is asleep most of the time, so its USB port disappears. Press **RESET**: it stays awake
 for 8 seconds, enough to start an upload. Or hold **BOOT** while plugging in USB.
 
+## Battery buzzer wiring (ESP32-C3 SuperMini, beta)
+
+Cheap and easy to find (e.g. in India), but needs one modification: **remove the red power LED**.
+It is always on and drains AA cells in weeks.
+
+| Button | Pin |
+|---|---|
+| A | GPIO 0 |
+| B | GPIO 1 |
+| C | GPIO 3 |
+| D | GPIO 4 |
+| Other leg of every button | GND |
+| Optional pull-ups | 100 kOhm from each button pin to 3V3 (extra-reliable wake-up) |
+| LED | built-in blue LED (GPIO 8) |
+
+Only GPIO 0-5 can wake the C3 from deep sleep. GPIO 2, 8 and 9 are boot pins, so they're avoided.
+
+**Power options** (feed the **3V3** pin, never the 5V pin, and add 470 uF across 3V3 and GND):
+
+| Option | Parts | Estimated life* |
+|---|---|---|
+| 3 x AA + low-power regulator | **HT7833** (or HT7333 / MCP1700-3302), 10 uF in, 470 uF + 0.1 uF out | **about 2 years** (best) |
+| 2 x AA straight to 3V3 | nothing | about 8-12 months (the C3 stops at ~2.8 V) |
+| 2 x AA + boost module | a module whose no-load current you measured below 20 uA | depends on the module |
+
+*About 100 presses a day, red LED removed, estimates only. Avoid AMS1117, LM7833, MT3608 and
+XL6009: they waste 1-5 mA even when idle.
+
+```
+ 3 x AA (4.5 V) --(switch)--> HT7833 VIN     HT7833 VOUT --+-- 470 uF --+--> 3V3 pin
+                               HT7833 GND -----------------+------------+--> GND pin
+```
+
+Check the pin order of your regulator package in its datasheet before soldering.
+
 ## Flashing the firmware
 
 Arduino IDE 2 with the **esp32 by Espressif** board package, version **3.x**. No extra libraries.
@@ -92,6 +128,7 @@ Arduino IDE 2 with the **esp32 by Espressif** board package, version **3.x**. No
 | `KBC_Host` | ESP32 Dev Module |
 | `KBC_Node` | ESP32 Dev Module |
 | `KBC_BatteryC6` | XIAO_ESP32C6, *USB CDC On Boot: Enabled* |
+| `KBC_BatteryC3` | ESP32C3 Dev Module, *USB CDC On Boot: Enabled*, *Flash Mode: DIO* |
 
 With `arduino-cli`:
 
