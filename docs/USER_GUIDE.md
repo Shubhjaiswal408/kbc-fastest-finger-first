@@ -21,7 +21,7 @@ This guide is for the person running the quiz. No programming needed.
 
 You need:
 - the **host** (one ESP32, USB powered, e.g. from a phone charger),
-- one **buzzer** per student or team,
+- one **buzzer** per student or team: an ESP32-C3 SuperMini on AA cells (see the [hardware guide](HARDWARE.md)),
 - a laptop or tablet, plus a projector for the big screen if you have one.
 
 ## 2. Connect to the host
@@ -42,7 +42,9 @@ Join the Wi-Fi and open the address. If your phone says "no internet", choose **
 ## 3. Pair the buzzers
 
 Switch a buzzer on near the host. It finds the host by itself in about a second.
-There is no button or code to type.
+There is no button or code to type. Its blue LED blinks while it searches, then gives **two long flashes**.
+A battery buzzer then goes to sleep and shows as **🔋 asleep** on the website: that's normal.
+([Why it sleeps](HOW_IT_WORKS.md#5-why-the-buzzer-sleeps-and-how-long-the-batteries-last).)
 
 ![How pairing works](images/pairing.svg)
 
@@ -52,7 +54,7 @@ On the **Buzzers** tab each buzzer gets a card:
 
 - **Rename** it: click the name and type the student's name.
 - **Colour:** click the colour square.
-- **Blink:** flashes that buzzer's LED so you can tell which physical buzzer is which.
+- **Blink:** flashes that buzzer's LED so you can tell which is which (USB buzzers only; battery buzzers are asleep, so press one of their buttons and watch the LED instead).
 - **Remove:** deletes it. It re-joins as a new player if *Accept new buzzers* is on.
 - Turn **Accept new buzzers** off once everyone is paired, so no extra devices can join.
 
@@ -62,6 +64,10 @@ moved to another Wi-Fi channel.
 ## 4. Test every button
 
 Still on the **Buzzers** tab, ask every student to press **A, B, C and D**.
+
+**Battery buzzers:** switch the buzzer on (or press its RESET button), then **within 15 seconds**
+press A, B, C and D. During this wiring check every press shows up instantly. After that, each
+press wakes the buzzer for half a second and is reported as well.
 
 - A tile turns **gold** while the button is held and **green ✓** once it has worked.
 - An orange **"loose contact"** warning means a wire is flickering. Push it in firmly.
@@ -154,7 +160,18 @@ cable is needed. Filter by device or text, pause, or download as a text file. Us
 
 ## Buzzer LED meanings
 
-**USB buzzer (KBC_Node)**
+**Battery buzzer (ESP32-C3 SuperMini, recommended), after a press**
+
+| LED after a press | Meaning |
+|---|---|
+| One long flash | Answer accepted |
+| Two short flashes | Already answered this round |
+| Three fast flashes | False start |
+| Double blink | Not an option for this question, press another |
+| One tiny blink | No round running |
+| Five fast flashes | Host not found |
+
+**USB buzzer (ESP32 dev board, KBC_Node)**
 
 | LED | Meaning |
 |---|---|
@@ -165,17 +182,6 @@ cable is needed. Filter by device or text, pause, or download as a text file. Us
 | Strobe | You won |
 | Slow blink | Correct, but not the fastest |
 | 3 quick flashes | False start |
-
-**Battery buzzer (KBC_BatteryC6, sleeps between presses)**
-
-| LED after a press | Meaning |
-|---|---|
-| One long flash | Answer accepted |
-| Two short flashes | Already answered this round |
-| Three fast flashes | False start |
-| Double blink | Not an option for this question, press another |
-| One tiny blink | No round running |
-| Five fast flashes | Host not found |
 
 ## Keyboard shortcuts
 
@@ -191,6 +197,15 @@ cable is needed. Filter by device or text, pause, or download as a text file. Us
 ## FAQ
 
 **A buzzer shows "Offline".** It's off, out of range, or was removed. Check *Logs* for that buzzer.
+
+**A battery buzzer shows "asleep" but it's switched off.** The host can't tell until the buzzer
+misses its hourly check-in. After that it shows as offline.
+
+**How far can a buzzer be from the host?** About 10-20 m indoors for the C3 SuperMini. Keep the
+host high up in the middle of the room.
+
+**How long do the batteries last?** About 8-12 months on 2 AA, or about 2 years on 3 AA with an
+HT7833, with the red power LED removed (estimates).
 
 **Two buzzers seem swapped.** Use **Blink** to find each one, then rename.
 

@@ -8,3 +8,7 @@ KBC_Host/wifi_secrets.h
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local tooling
+.claude/
+_prev/

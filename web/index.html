@@ -423,22 +423,25 @@ textarea.in{resize:vertical;min-height:90px;font-family:var(--mono);font-size:13
       <div class="card">
         <div class="card-h"><h2>Add a buzzer</h2></div>
         <ol style="margin:0;padding-left:20px;color:var(--muted)">
-          <li>Flash the <b style="color:var(--text)">KBC_Node</b> firmware (same file for every buzzer).</li>
-          <li>Power it on. Its LED double-blinks while it searches.</li>
-          <li>It appears here in a second. Give it a student's name and a color.</li>
-          <li>Press <b style="color:var(--text)">Blink</b> to find which physical buzzer is which.</li>
+          <li>Flash <b style="color:var(--text)">KBC_BatteryC3</b> on an ESP32-C3 SuperMini (same file for every buzzer).</li>
+          <li>Power it on. The blue LED blinks while it searches, then gives 2 long flashes.</li>
+          <li>It appears here in a second as 🔋. Give it a student's name and a colour.</li>
+          <li>For 15 s after power-on, press A-D: each tile turns green if its wire works.</li>
         </ol>
+        <p class="muted" style="margin:12px 0 0;font-size:13px">Battery buzzers sleep between presses, so <b style="color:var(--text)">Blink</b> is off for them: press a button and watch its LED instead.</p>
       </div>
       <div class="card">
-        <div class="card-h"><h2>Buzzer wiring</h2></div>
+        <div class="card-h"><h2>Buzzer wiring (C3 SuperMini)</h2></div>
         <div class="kv">
-          <span>Button A</span><span>GPIO 32 ↔ GND</span>
-          <span>Button B</span><span>GPIO 33 ↔ GND</span>
-          <span>Button C</span><span>GPIO 25 ↔ GND</span>
-          <span>Button D</span><span>GPIO 26 ↔ GND</span>
-          <span>Status LED</span><span>on-board LED (GPIO 2)</span>
+          <span>Button A</span><span>GPIO 0 ↔ GND</span>
+          <span>Button B</span><span>GPIO 1 ↔ GND</span>
+          <span>Button C</span><span>GPIO 3 ↔ GND</span>
+          <span>Button D</span><span>GPIO 4 ↔ GND</span>
+          <span>Pull-ups</span><span>100 kΩ from each button pin to 3V3</span>
+          <span>LED</span><span>built-in blue LED (GPIO 8)</span>
+          <span>Power</span><span>2 × AA → 3V3, or 3 × AA → HT7833 → 3V3</span>
         </div>
-        <p class="muted" style="margin:12px 0 0;font-size:13px">No resistors needed: internal pull-ups are used.</p>
+        <p class="muted" style="margin:12px 0 0;font-size:13px">Remove the red power LED. Add 470 µF across 3V3 and GND. Never connect batteries to the 5V pin.<br>USB buzzer (ESP32 dev board, <b style="color:var(--text)">KBC_Node</b>): GPIO 32 / 33 / 25 / 26 ↔ GND.</p>
       </div>
     </div>
   </section>
@@ -594,7 +597,7 @@ class MockHost {
     this.net = { ap: 'KBC-Quiz', apIp: '192.168.4.1', ch: 1, apCh: 1, sta: '', staIp: '', host: 'kbc', clients: 1 };
     this.players = names.map((n, i) => ({ m: '24:6F:28:A1:0' + i + ':' + (16 + i * 23).toString(16).toUpperCase(), no: i + 1, n, c: cols[i],
       s: 0, on: i < 5 ? 1 : 0, r: -42 - i * 6, fw: 110, a: null, plan: null, b: { k: 0, p: [0, 0, 0, 0], g: i === 2 ? 3 : 0 }, rel: 0 }));
-    Object.assign(this.players[5], { on: 1, bat: 1, fw: 200 });   // demo: one battery (XIAO C6) buzzer
+    [3, 4, 5].forEach(i => Object.assign(this.players[i], { on: 1, bat: 1, fw: 202 }));   // demo: three C3 battery buzzers
     this.logs = []; this.lseq = 0; this.nextBtn = 0;
     this.log('', '[boot] host v1.1.0 ready on channel 1 (demo)');
     this.players.filter(p => p.on).forEach(p => { this.log(p.m, '[boot] KBC buzzer fw 1.10  MAC ' + p.m); this.log(p.m, '[link] I am player #' + p.no); });
@@ -1043,7 +1046,8 @@ function renderPlayers() {
   if (g.contains(document.activeElement)) { updateTiles(); return; }      // don't disturb typing
   $('#accNew').checked = !!S.set.acc;
   const on = onlineCount();
-  $('#pSummary').textContent = `${on} online · ${S.players.length} paired`;
+  const asleep = S.players.filter(p => p.bat && p.on && !p.awake).length;
+  $('#pSummary').textContent = `${on - asleep} online · ${asleep ? asleep + ' asleep · ' : ''}${S.players.length} paired`;
   if (!S.players.length) { g.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>No buzzers paired yet</b>Power on a buzzer near the host. It shows up here automatically.</div>`; return; }
   g.innerHTML = [...S.players].sort((a, b) => a.no - b.no).map(p => `
     <div class="pcard ${p.on ? '' : 'off'}" style="--pc:${p.c}">

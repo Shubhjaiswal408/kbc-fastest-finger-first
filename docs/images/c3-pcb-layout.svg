@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 520" width="860" height="520" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <defs><pattern id="h" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#e24b4a" stroke-width="2" opacity=".35"/></pattern></defs>
+  <rect x="0" y="0" width="860" height="520" rx="18" fill="#ffffff"/>
+  <text x="430" y="34" text-anchor="middle" font-size="18" font-weight="600" fill="#2c2c2a">PCB layout guide (top view, not to scale)</text>
+
+  <!-- pcb -->
+  <rect x="60" y="70" width="460" height="400" rx="14" fill="#2f6b3a" stroke="#1d4a26" stroke-width="2"/>
+  <text x="290" y="460" text-anchor="middle" font-size="12" fill="#cfe8d4">ground pour on both layers (except the antenna area)</text>
+
+  <!-- module overhanging right edge -->
+  <rect x="330" y="110" width="250" height="90" rx="8" fill="#1d1d26" stroke="#000"/>
+  <rect x="314" y="138" width="30" height="34" rx="4" fill="#b8bcc6"/><text x="329" y="130" text-anchor="middle" font-size="11" fill="#e6f1e8">USB-C</text>
+  <text x="440" y="160" text-anchor="middle" font-size="13" font-weight="600" fill="#ececf3">C3 SuperMini</text>
+  <rect x="520" y="104" width="90" height="102" rx="6" fill="url(#h)" stroke="#e24b4a" stroke-dasharray="5 4"/>
+  <text x="565" y="148" text-anchor="middle" font-size="11" font-weight="700" fill="#a32d2d">antenna</text>
+  <text x="565" y="164" text-anchor="middle" font-size="11" fill="#a32d2d">overhangs</text>
+
+  <!-- caps near 3v3 -->
+  <circle cx="372" cy="232" r="16" fill="#3a3a48" stroke="#999"/><text x="372" y="236" text-anchor="middle" font-size="10" fill="#fff">470µ</text>
+  <rect x="398" y="224" width="20" height="14" rx="2" fill="#c9a36b"/><text x="408" y="252" text-anchor="middle" font-size="9" fill="#e6f1e8">100n</text>
+
+  <!-- buttons -->
+  <g font-size="14" font-weight="700" text-anchor="middle">
+    <rect x="100" y="300" width="70" height="70" rx="8" fill="#fcebeb" stroke="#a32d2d"/><text x="135" y="341" fill="#791f1f">A</text>
+    <rect x="190" y="300" width="70" height="70" rx="8" fill="#faeeda" stroke="#854f0b"/><text x="225" y="341" fill="#633806">B</text>
+    <rect x="280" y="300" width="70" height="70" rx="8" fill="#e1f5ee" stroke="#0f6e56"/><text x="315" y="341" fill="#085041">C</text>
+    <rect x="370" y="300" width="70" height="70" rx="8" fill="#e6f1fb" stroke="#185fa5"/><text x="405" y="341" fill="#0c447c">D</text>
+  </g>
+  <text x="270" y="392" text-anchor="middle" font-size="11" fill="#e6f1e8">12 x 12 mm tactile, or JST-XH to arcade buttons · 100 kΩ pull-ups next to the module</text>
+
+  <!-- battery + regulator -->
+  <rect x="90" y="100" width="190" height="110" rx="8" fill="#e8e6dd" stroke="#888780"/>
+  <text x="185" y="140" text-anchor="middle" font-size="13" font-weight="600" fill="#2c2c2a">Battery holder</text>
+  <text x="185" y="160" text-anchor="middle" font-size="11.5" fill="#444441">(or JST-PH on the edge)</text>
+  <rect x="200" y="224" width="44" height="30" rx="4" fill="#3a3a48"/><text x="222" y="243" text-anchor="middle" font-size="10" fill="#fff">HT7833</text>
+  <rect x="96" y="226" width="40" height="22" rx="4" fill="#5a5a6a"/><text x="116" y="241" text-anchor="middle" font-size="10" fill="#fff">switch</text>
+
+  <!-- notes -->
+  <g font-size="12.5" fill="#2c2c2a">
+    <text x="620" y="96" font-weight="600">Rules</text>
+    <text x="620" y="122">1. Antenna end overhangs the edge:</text>
+    <text x="640" y="140" fill="#444441">no copper, traces or battery</text>
+    <text x="640" y="158" fill="#444441">within ~10 mm of it.</text>
+    <text x="620" y="186">2. USB-C reachable at the edge;</text>
+    <text x="640" y="204" fill="#444441">BOOT + RESET reachable too.</text>
+    <text x="620" y="232">3. 470 µF + 100 nF right at</text>
+    <text x="640" y="250" fill="#444441">the 3V3 / GND pins.</text>
+    <text x="620" y="278">4. Power traces ≥ 0.5 mm wide.</text>
+    <text x="620" y="306">5. Battery away from the antenna.</text>
+    <text x="620" y="334">6. Silkscreen: "Remove batteries</text>
+    <text x="640" y="352" fill="#444441">before USB".</text>
+    <text x="620" y="380">7. Mount the module on headers so</text>
+    <text x="640" y="398" fill="#444441">the red LED can be removed first.</text>
+  </g>
+  <text x="430" y="500" text-anchor="middle" font-size="12" fill="#5f5e5a">The SuperMini's antenna is weak: placement decides your range. Keep the antenna end free and near the top of the case.</text>
+</svg>

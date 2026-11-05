@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" width="760" height="560" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <rect x="0" y="0" width="760" height="560" rx="18" fill="#ffffff"/>
+  <text x="380" y="34" text-anchor="middle" font-size="18" font-weight="600" fill="#2c2c2a">ESP32-C3 SuperMini: pins used by the KBC battery buzzer</text>
+  <text x="380" y="56" text-anchor="middle" font-size="12.5" fill="#5f5e5a">Top view, USB-C at the top. Clones differ slightly: always check the labels printed on your board.</text>
+
+  <!-- board -->
+  <rect x="280" y="90" width="200" height="400" rx="14" fill="#1d1d26" stroke="#000" stroke-width="2"/>
+  <rect x="335" y="76" width="90" height="30" rx="6" fill="#b8bcc6"/><text x="380" y="96" text-anchor="middle" font-size="12" fill="#1f2a37">USB-C</text>
+  <rect x="325" y="210" width="110" height="90" rx="6" fill="#3a3a48"/>
+  <text x="380" y="250" text-anchor="middle" font-size="14" font-weight="600" fill="#ececf3">ESP32-C3</text>
+  <text x="380" y="270" text-anchor="middle" font-size="12" fill="#c9c9d6">SuperMini</text>
+  <rect x="300" y="125" width="34" height="16" rx="3" fill="#5a5a6a"/><text x="317" y="137" text-anchor="middle" font-size="9" fill="#ececf3">BOOT</text>
+  <rect x="426" y="125" width="34" height="16" rx="3" fill="#5a5a6a"/><text x="443" y="137" text-anchor="middle" font-size="9" fill="#ececf3">RST</text>
+  <circle cx="310" cy="166" r="6" fill="#e24b4a"/><text x="322" y="170" font-size="10.5" fill="#f7c1c1">power LED: remove it</text>
+  <circle cx="310" cy="188" r="6" fill="#378add"/><text x="322" y="192" font-size="10.5" fill="#b5d4f4">blue LED (GPIO 8)</text>
+  <rect x="320" y="440" width="120" height="40" rx="5" fill="none" stroke="#f5c542" stroke-dasharray="5 4"/>
+  <text x="380" y="465" text-anchor="middle" font-size="11" fill="#f5c542">antenna</text>
+
+  <!-- left pins -->
+  <g font-size="13">
+    <g><rect x="40" y="152" width="230" height="30" rx="6" fill="#fcebeb" stroke="#a32d2d"/><text x="54" y="172" font-weight="700" fill="#791f1f">5V</text><text x="258" y="172" text-anchor="end" fill="#791f1f">USB only, never batteries</text></g>
+    <g><rect x="40" y="194" width="230" height="30" rx="6" fill="#f1efe8" stroke="#5f5e5a"/><text x="54" y="214" font-weight="700" fill="#2c2c2a">GND</text><text x="258" y="214" text-anchor="end" fill="#444441">battery −, all buttons</text></g>
+    <g><rect x="40" y="236" width="230" height="30" rx="6" fill="#fcebeb" stroke="#a32d2d"/><text x="54" y="256" font-weight="700" fill="#791f1f">3V3</text><text x="258" y="256" text-anchor="end" fill="#791f1f">battery + (or HT7833 out)</text></g>
+    <g><rect x="40" y="278" width="230" height="30" rx="6" fill="#e1f5ee" stroke="#0f6e56"/><text x="54" y="298" font-weight="700" fill="#04342c">GPIO 4</text><text x="258" y="298" text-anchor="end" fill="#085041">button D</text></g>
+    <g><rect x="40" y="320" width="230" height="30" rx="6" fill="#e1f5ee" stroke="#0f6e56"/><text x="54" y="340" font-weight="700" fill="#04342c">GPIO 3</text><text x="258" y="340" text-anchor="end" fill="#085041">button C</text></g>
+    <g><rect x="40" y="362" width="230" height="30" rx="6" fill="#faeeda" stroke="#854f0b"/><text x="54" y="382" font-weight="700" fill="#412402">GPIO 2</text><text x="258" y="382" text-anchor="end" fill="#633806">boot pin: leave free</text></g>
+    <g><rect x="40" y="404" width="230" height="30" rx="6" fill="#e1f5ee" stroke="#0f6e56"/><text x="54" y="424" font-weight="700" fill="#04342c">GPIO 1</text><text x="258" y="424" text-anchor="end" fill="#085041">button B</text></g>
+    <g><rect x="40" y="446" width="230" height="30" rx="6" fill="#e1f5ee" stroke="#0f6e56"/><text x="54" y="466" font-weight="700" fill="#04342c">GPIO 0</text><text x="258" y="466" text-anchor="end" fill="#085041">button A</text></g>
+  </g>
+  <!-- right pins -->
+  <g font-size="13">
+    <g><rect x="490" y="152" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="172" font-weight="700" fill="#2c2c2a">GPIO 5</text><text x="708" y="172" text-anchor="end" fill="#444441">spare (can wake)</text></g>
+    <g><rect x="490" y="194" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="214" font-weight="700" fill="#2c2c2a">GPIO 6</text><text x="708" y="214" text-anchor="end" fill="#444441">spare</text></g>
+    <g><rect x="490" y="236" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="256" font-weight="700" fill="#2c2c2a">GPIO 7</text><text x="708" y="256" text-anchor="end" fill="#444441">spare</text></g>
+    <g><rect x="490" y="278" width="230" height="30" rx="6" fill="#e6f1fb" stroke="#185fa5"/><text x="504" y="298" font-weight="700" fill="#042c53">GPIO 8</text><text x="708" y="298" text-anchor="end" fill="#0c447c">blue LED</text></g>
+    <g><rect x="490" y="320" width="230" height="30" rx="6" fill="#faeeda" stroke="#854f0b"/><text x="504" y="340" font-weight="700" fill="#412402">GPIO 9</text><text x="708" y="340" text-anchor="end" fill="#633806">BOOT button: leave free</text></g>
+    <g><rect x="490" y="362" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="382" font-weight="700" fill="#2c2c2a">GPIO 10</text><text x="708" y="382" text-anchor="end" fill="#444441">spare</text></g>
+    <g><rect x="490" y="404" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="424" font-weight="700" fill="#2c2c2a">GPIO 20</text><text x="708" y="424" text-anchor="end" fill="#444441">RX (spare)</text></g>
+    <g><rect x="490" y="446" width="230" height="30" rx="6" fill="#f1efe8" stroke="#888780"/><text x="504" y="466" font-weight="700" fill="#2c2c2a">GPIO 21</text><text x="708" y="466" text-anchor="end" fill="#444441">TX (spare)</text></g>
+  </g>
+  <g font-size="12" fill="#444441">
+    <rect x="120" y="512" width="14" height="14" rx="3" fill="#e1f5ee" stroke="#0f6e56"/><text x="140" y="523">button (wake-capable)</text>
+    <rect x="290" y="512" width="14" height="14" rx="3" fill="#fcebeb" stroke="#a32d2d"/><text x="310" y="523">power</text>
+    <rect x="370" y="512" width="14" height="14" rx="3" fill="#faeeda" stroke="#854f0b"/><text x="390" y="523">boot pin, don't use</text>
+    <rect x="530" y="512" width="14" height="14" rx="3" fill="#e6f1fb" stroke="#185fa5"/><text x="550" y="523">LED</text>
+    <rect x="600" y="512" width="14" height="14" rx="3" fill="#f1efe8" stroke="#888780"/><text x="620" y="523">spare</text>
+  </g>
+  <text x="380" y="548" text-anchor="middle" font-size="12" fill="#5f5e5a">Only GPIO 0-5 can wake the C3 from deep sleep, which is why the buttons use 0, 1, 3 and 4.</text>
+</svg>
