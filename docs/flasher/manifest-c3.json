@@ -1,0 +1,6 @@
+{
+  "name": "KBC Buzzer - battery buzzer (ESP32-C3 SuperMini)",
+  "version": "2.02",
+  "new_install_prompt_erase": true,
+  "builds": [ { "chipFamily": "ESP32-C3", "parts": [ { "path": "firmware/kbc-battery-c3.bin", "offset": 0 } ] } ]
+}

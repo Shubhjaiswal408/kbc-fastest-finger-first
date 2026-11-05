@@ -48,10 +48,17 @@ Buttons on **GPIO 0 / 1 / 3 / 4** (A-D) to GND, a 100 kΩ pull-up on each, the b
 for feedback, and 2 AA straight to **3V3** (or 3 AA through an HT7833). **Remove the red power LED.**
 Full details, PCB layout and parts list: **[Hardware guide](docs/HARDWARE.md)**.
 
+## Install from your browser
+
+**[Open the KBC Buzzer Flasher](https://shubhjaiswal408.github.io/kbc-fastest-finger-first/flasher/)**: plug a board into USB, press *Install* on its card,
+pick the port. Works in Chrome or Edge on a computer. No Arduino IDE needed.
+
+[![KBC Buzzer Flasher](docs/images/flasher.png)](https://shubhjaiswal408.github.io/kbc-fastest-finger-first/flasher/)
+
 ## Quick start
 
 1. **Build the buzzers** as shown above ([hardware guide](docs/HARDWARE.md)).
-2. **Flash the firmware** with the Arduino IDE (esp32 core 3.x, no extra libraries):
+2. **Flash the firmware** with the **[web flasher](https://shubhjaiswal408.github.io/kbc-fastest-finger-first/flasher/)**, or with the Arduino IDE (esp32 core 3.x, no extra libraries):
    - every buzzer: `KBC_BatteryC3` (*ESP32C3 Dev Module*, USB CDC On Boot: Enabled, Flash Mode: DIO)
    - one host: `KBC_Host` (*ESP32 Dev Module*)
 3. **Power the host** and join its Wi-Fi **KBC-Quiz** (password `kbc12345`). Open **http://192.168.4.1** or **http://kbc.local**.
@@ -80,6 +87,7 @@ KBC_Host/          host firmware: game, radio, web server, embedded web app
 web/index.html     the web app source (one file, works offline)
 tools/embed.ps1    packs web/index.html into KBC_Host/web_index.h (gzip)
 docs/              guides and images
+docs/flasher/      the web flasher (GitHub Pages) with ready-built firmware
 ```
 
 ## Project status

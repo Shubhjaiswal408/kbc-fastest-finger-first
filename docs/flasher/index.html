@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KBC Buzzer Flasher</title>
+<meta name="description" content="Install the KBC Buzzer firmware on your ESP32 boards straight from the browser.">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+:root{--bg:#07041a;--panel:rgba(255,255,255,.045);--line:rgba(255,255,255,.1);--text:#eef0ff;--muted:#a3a7d2;
+  --gold:#f5c542;--gold2:#ffe08a;--green:#22c55e;--red:#ef4444;--r:16px;--font:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:radial-gradient(1100px 600px at 75% -10%,#2a1680 0%,transparent 60%),radial-gradient(800px 500px at -10% 110%,#1d0f5c 0%,transparent 55%),var(--bg);
+  color:var(--text);font:16px/1.6 var(--font);min-height:100vh}
+a{color:var(--gold2)}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 20px 70px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header svg{width:56px;height:56px;flex:none}
+h1{margin:0;font-size:30px;line-height:1.2}
+.sub{color:var(--muted);margin:4px 0 0}
+.note{margin:26px 0 0;padding:14px 18px;border-radius:12px;border:1px solid rgba(245,197,66,.35);background:linear-gradient(90deg,rgba(245,197,66,.12),rgba(109,74,255,.12));font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;display:flex;flex-direction:column}
+.card.rec{border-color:rgba(34,197,94,.6);box-shadow:0 0 0 1px rgba(34,197,94,.25) inset}
+.tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 10px;border-radius:999px;margin-bottom:10px;background:rgba(255,255,255,.08);color:var(--muted)}
+.rec .tag{background:rgba(34,197,94,.18);color:#86efac}
+.card h2{margin:0 0 4px;font-size:21px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 12px}
+.card ol,.card ul{margin:0 0 16px;padding-left:20px;color:#d5d8f5;font-size:15px}
+.card li{margin:4px 0}
+.spacer{flex:1}
+esp-web-install-button button,.btn{font:inherit;font-weight:700;font-size:17px;border:0;border-radius:12px;padding:13px 22px;cursor:pointer;width:100%;
+  background:linear-gradient(180deg,#ffd970,#e8a920);color:#2a1a00}
+esp-web-install-button button:hover{filter:brightness(1.07)}
+.warn{font-size:13px;color:#fdba74;margin:10px 0 0}
+.unsup{display:block;padding:12px;border-radius:10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fecaca;font-size:14px}
+section{margin-top:40px}
+section h2{font-size:22px;margin:0 0 12px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em}
+code{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:14px}
+footer{margin-top:46px;color:var(--muted);font-size:14px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}h1{font-size:25px}.wrap{padding:28px 16px 60px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#a8781f"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="30" fill="#140a4a" stroke="url(#g)" stroke-width="3"/><circle cx="32" cy="32" r="22" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-dasharray="3 4"/><path d="M36 10 L22 35 H31 L27 54 L43 27 H33 Z" fill="url(#g)"/></svg>
+    <div>
+      <h1>KBC Buzzer Flasher</h1>
+      <p class="sub">Install the firmware on your ESP32 boards straight from this page. No Arduino IDE needed.</p>
+    </div>
+  </header>
+
+  <div class="note"><b>How to use:</b> open this page in <b>Chrome or Edge on a computer</b>, plug the board in with a <b>data</b> USB cable,
+    press <b>Install</b> on its card and pick the board's port. Takes about a minute.
+    New here? Read the <a href="https://github.com/Shubhjaiswal408/kbc-fastest-finger-first">project page</a> first.</div>
+
+  <div class="grid">
+    <div class="card rec">
+      <span class="tag">Recommended buzzer</span>
+      <h2>Battery buzzer</h2>
+      <p class="meta">ESP32-C3 SuperMini · firmware <b>KBC_BatteryC3</b> v2.02</p>
+      <ol>
+        <li><b>Remove the batteries</b>, then plug the C3 into USB.</li>
+        <li>Not in the port list? It's asleep: <b>hold BOOT, tap RESET, release BOOT</b>, then try again.</li>
+        <li>After installing, it searches for the host and gives <b>two long flashes</b>.</li>
+        <li>For 15 s after power-on, press A-D: each tile on the <i>Buzzers</i> tab turns green.</li>
+      </ol>
+      <div class="spacer"></div>
+      <esp-web-install-button manifest="manifest-c3.json">
+        <button slot="activate">Install battery buzzer</button>
+        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
+      </esp-web-install-button>
+    </div>
+
+    <div class="card">
+      <span class="tag">One per room</span>
+      <h2>Host</h2>
+      <p class="meta">ESP32 dev board · firmware <b>KBC_Host</b> v1.2.0</p>
+      <ol>
+        <li>Plug the ESP32 into USB and press Install.</li>
+        <li>Stuck on "Connecting…"? <b>Hold the BOOT button</b> until the install starts.</li>
+        <li>Then join Wi-Fi <code>KBC-Quiz</code> (password <code>kbc12345</code>) and open <code>http://192.168.4.1</code>.</li>
+        <li>School Wi-Fi: set it later in <i>Settings → Host Wi-Fi</i>.</li>
+      </ol>
+      <p class="warn">Updating an existing host? <b>Don't tick "Erase"</b>, or buzzer names, scores and questions are lost.</p>
+      <div class="spacer"></div>
+      <esp-web-install-button manifest="manifest-host.json">
+        <button slot="activate">Install host</button>
+        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
+      </esp-web-install-button>
+    </div>
+
+    <div class="card">
+      <span class="tag">Buzzer on USB power</span>
+      <h2>USB buzzer</h2>
+      <p class="meta">ESP32 dev board · firmware <b>KBC_Node</b> v1.10</p>
+      <ul>
+        <li>Always listening, with full LED feedback ("answer now", winner strobe).</li>
+        <li>Buttons on GPIO 32 / 33 / 25 / 26 to GND.</li>
+        <li>Stuck on "Connecting…"? Hold BOOT until the install starts.</li>
+      </ul>
+      <div class="spacer"></div>
+      <esp-web-install-button manifest="manifest-node.json">
+        <button slot="activate">Install USB buzzer</button>
+        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
+      </esp-web-install-button>
+    </div>
+
+    <div class="card">
+      <span class="tag">Alternative battery board</span>
+      <h2>XIAO C6 buzzer</h2>
+      <p class="meta">Seeed XIAO ESP32-C6 · firmware <b>KBC_BatteryC6</b> v2.00 (beta)</p>
+      <ul>
+        <li>Lowest sleep current; button D uses the MTDO pad on the back.</li>
+        <li>Not in the port list? Press RESET (it stays awake 8 s), or hold BOOT while plugging in.</li>
+      </ul>
+      <div class="spacer"></div>
+      <esp-web-install-button manifest="manifest-c6.json">
+        <button slot="activate">Install XIAO C6 buzzer</button>
+        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
+      </esp-web-install-button>
+    </div>
+  </div>
+
+  <section>
+    <h2>Troubleshooting</h2>
+    <table>
+      <tr><th>Problem</th><th>Fix</th></tr>
+      <tr><td>No port in the list</td><td>Use a <b>data</b> USB cable (some only charge). Battery buzzers sleep: hold BOOT, tap RESET, release BOOT.</td></tr>
+      <tr><td>Host board not detected at all</td><td>Install the <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers">CP210x driver</a> (or CH340, depending on the board).</td></tr>
+      <tr><td>"Failed to connect" / stuck on connecting</td><td>Hold BOOT while the install starts. Close the Arduino IDE Serial Monitor and any other program using the port.</td></tr>
+      <tr><td>"Wrong chip"</td><td>You picked the wrong card. The host and USB buzzer need an ESP32; the battery buzzer needs an ESP32-C3.</td></tr>
+      <tr><td>Install button says the browser isn't supported</td><td>Use desktop Chrome or Edge (Web Serial). Phones and Firefox/Safari can't flash.</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    Firmware is built from the <a href="https://github.com/Shubhjaiswal408/kbc-fastest-finger-first">KBC Buzzer repository</a> (MIT license).
+    The public host firmware contains no Wi-Fi password: set your school Wi-Fi in the host's Settings page.
+    Flashing uses <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a>.
+  </footer>
+</div>
+</body>
+</html>

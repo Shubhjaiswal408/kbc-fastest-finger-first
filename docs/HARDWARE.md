@@ -139,7 +139,12 @@ the MTDO pad on the back.
 
 ## Flashing the firmware
 
-Arduino IDE 2 with **esp32 by Espressif** version **3.x**. No extra libraries.
+**Easiest: the [web flasher](https://shubhjaiswal408.github.io/kbc-fastest-finger-first/flasher/).** Open it in Chrome or Edge on a computer, plug the board in,
+press *Install* on its card. It installs ready-built firmware for the host, the C3 battery buzzer,
+the USB buzzer and the XIAO C6. (The public host firmware has no Wi-Fi password built in; set your
+school Wi-Fi in the host's *Settings*.)
+
+**Or build it yourself** with Arduino IDE 2 and **esp32 by Espressif** version **3.x**. No extra libraries.
 
 | Sketch | Board | Options |
 |---|---|---|

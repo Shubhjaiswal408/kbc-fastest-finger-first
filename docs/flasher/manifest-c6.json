@@ -1,0 +1,6 @@
+{
+  "name": "KBC Buzzer - battery buzzer (Seeed XIAO ESP32-C6)",
+  "version": "2.00",
+  "new_install_prompt_erase": true,
+  "builds": [ { "chipFamily": "ESP32-C6", "parts": [ { "path": "firmware/kbc-battery-c6.bin", "offset": 0 } ] } ]
+}
