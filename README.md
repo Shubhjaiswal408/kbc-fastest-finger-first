@@ -40,7 +40,9 @@ All buzzer types can be mixed in one game, up to **40 per host**.
 
 ## The buzzer: ESP32-C3 SuperMini
 
-| Pinout | Wiring |
+![C3 buzzer connection diagram](docs/images/c3-connection.png)
+
+| Pinout | Schematic |
 |---|---|
 | ![C3 pinout](docs/images/c3-pinout.svg) | ![C3 wiring](docs/images/c3-wiring.svg) |
 

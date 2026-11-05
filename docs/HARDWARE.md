@@ -53,6 +53,10 @@ Where to buy in India: Robu.in, Robocraze, ElectronicsComp and Amazon.in; local 
 
 ### Wiring
 
+![C3 buzzer connection diagram](images/c3-connection.png)
+
+The same circuit as a schematic, with both power options:
+
 ![C3 wiring](images/c3-wiring.svg)
 
 1. Each button: **pin → button → GND.**
