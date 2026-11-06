@@ -1,25 +1,35 @@
 // ============================================================================
-//  MiniWeb - a tiny HTTP/1.1 server that serves several connections at once.
+//  MiniWeb - a tiny non-blocking HTTP/1.1 server.
 //  ---------------------------------------------------------------------------
-//  Why not the built-in WebServer? It handles one connection at a time and
-//  waits up to 5 s for that connection to send its request. Chrome opens spare
-//  "pre-connect" sockets that stay silent, so every one of them froze the
-//  whole site for 5 s. MiniWeb keeps up to MW_SLOTS connections open side by
-//  side and simply drops silent ones after MW_IDLE_MS.
+//  Why not the built-in WebServer? It serves one connection at a time, waits
+//  up to 5 s for a silent connection, and blocks while a slow client reads its
+//  reply. One weak phone then freezes the site for everyone.
 //
-//  The handler-side API mirrors WebServer (arg, hasArg, send, sendHeader,
-//  send_P, streamFile) so handlers look the same.
+//  MiniWeb:
+//   * keeps up to MW_SLOTS connections side by side and drops silent ones;
+//   * keeps connections alive, so a browser polling every 200 ms reuses one
+//     connection instead of opening a new one each time;
+//   * never waits on the network: replies are queued per connection and sent
+//     with non-blocking writes, a little each pass.
+//
+//  Handlers use the WebServer-style API (arg, hasArg, send, sendHeader,
+//  send_P, sendGzip, streamFile). send() only queues the reply, so it's cheap
+//  to call while holding a lock.
 // ============================================================================
 #pragma once
 #include <WiFi.h>
 #include <FS.h>
+#include <lwip/sockets.h>
+#include <errno.h>
 #include <functional>
 #include <vector>
 
-#define MW_SLOTS     6
-#define MW_IDLE_MS   3000     // drop a connection that sends nothing for this long
-#define MW_MAX_HEAD  4096
-#define MW_MAX_BODY  65536
+#define MW_SLOTS        8
+#define MW_IDLE_MS      3000    // a new connection must send its request within this
+#define MW_KEEPALIVE_MS 6000    // an idle kept-alive connection is closed after this
+#define MW_STALL_MS     10000   // a client that stops reading its reply is dropped
+#define MW_MAX_HEAD     4096
+#define MW_MAX_BODY     65536
 
 enum MiniMethod { MW_ANY = 0, MW_GET = 1, MW_POST = 2 };
 
@@ -33,43 +43,33 @@ class MiniWeb {
   void onNotFound(Handler h) { _notFound = h; }
   void begin() { _srv.begin(); _srv.setNoDelay(true); }
 
-  // Call often. Never waits for a slow client.
+  // Call often. Never waits for a client.
   void handleClient() {
-    // accept every waiting connection
-    for (;;) {
+    for (;;) {                                    // accept every waiting connection
       NetworkClient c = _srv.accept();
       if (!c) break;
-      int free = -1, oldest = 0;
-      for (int i = 0; i < MW_SLOTS; i++) {
-        if (!_s[i].used) { free = i; break; }
-        if (_s[i].since < _s[oldest].since) oldest = i;
-      }
-      if (free < 0) { _s[oldest].c.stop(); free = oldest; }   // full: drop the oldest
-      _s[free].c = c;
-      _s[free].used = true;
-      _s[free].since = millis();
-      _s[free].buf = "";
+      Slot &s = _s[_pickSlot()];
+      s.c = c;
+      s.used = true;
+      s.since = millis();
     }
-    // serve the ones that have sent a full request
     for (int i = 0; i < MW_SLOTS; i++) {
       Slot &s = _s[i];
       if (!s.used) continue;
+      if (_pending(s)) { _pump(s); continue; }     // still sending the last reply
       int n = s.c.available();
-      while (n > 0) {
+      while (n > 0 && s.buf.length() <= MW_MAX_HEAD + MW_MAX_BODY) {
         char tmp[512];
         int r = s.c.read((uint8_t *)tmp, min(n, (int)sizeof(tmp)));
         if (r <= 0) break;
         s.buf.concat(tmp, r);
         s.since = millis();
         n -= r;
-        if (s.buf.length() > MW_MAX_HEAD + MW_MAX_BODY) break;
       }
-      if (_tryServe(s)) continue;
-      if (!s.c.connected() || millis() - s.since > MW_IDLE_MS || s.buf.length() > MW_MAX_HEAD + MW_MAX_BODY) {
-        s.c.stop();
-        s.used = false;
-        s.buf = "";
-      }
+      if (_tryServe(s)) { _pump(s); continue; }
+      uint32_t limit = (s.served && s.buf.length() == 0) ? MW_KEEPALIVE_MS : MW_IDLE_MS;
+      if (!s.c.connected() || millis() - s.since > limit || s.buf.length() > MW_MAX_HEAD + MW_MAX_BODY)
+        _close(s);
     }
   }
 
@@ -87,32 +87,45 @@ class MiniWeb {
   void sendHeader(const String &k, const String &v) { _hdrs += k + ": " + v + "\r\n"; }
 
   void send(int code, const char *type, const String &body) {
-    _writeHead(code, type, body.length());
-    _write((const uint8_t *)body.c_str(), body.length());
+    if (!_begin(code, type, body.length())) return;
+    _cur->out += body;
   }
   void send_P(int code, const char *type, const char *content) {
     size_t len = strlen(content);
-    _writeHead(code, type, len);
-    _write((const uint8_t *)content, len);
+    if (!_begin(code, type, len)) return;
+    _cur->ext = (const uint8_t *)content;
+    _cur->extLen = len;
   }
-  // Pre-compressed content (gzip), e.g. the embedded web page.
+  // Pre-compressed content in flash (gzip), e.g. the embedded web page. Not copied.
   void sendGzip(int code, const char *type, const uint8_t *data, size_t len) {
     sendHeader("Content-Encoding", "gzip");
-    _writeHead(code, type, len);
-    _write(data, len);
+    if (!_begin(code, type, len)) return;
+    _cur->ext = data;
+    _cur->extLen = len;
   }
   void streamFile(File &f, const char *type) {
-    _writeHead(200, type, f.size());
+    size_t len = f.size();
+    if (!_begin(200, type, len)) return;
+    _cur->out.reserve(_cur->out.length() + len);
     uint8_t tmp[1024];
     while (f.available()) {
       int r = f.read(tmp, sizeof(tmp));
       if (r <= 0) break;
-      _write(tmp, r);
+      _cur->out.concat((const char *)tmp, r);
     }
   }
 
  private:
-  struct Slot { NetworkClient c; bool used = false; uint32_t since = 0; String buf; };
+  struct Slot {
+    NetworkClient c;
+    bool used = false, served = false, closeAfter = false;
+    uint32_t since = 0;
+    String buf;                         // request bytes received so far
+    String out;                         // queued reply (head + body)
+    size_t outOff = 0;
+    const uint8_t *ext = nullptr;       // reply body that lives in flash
+    size_t extLen = 0, extOff = 0;
+  };
   struct Route { String uri; int method; Handler h; };
 
   NetworkServer _srv;
@@ -120,10 +133,69 @@ class MiniWeb {
   std::vector<Route> _routes;
   Handler _notFound;
   // current request
-  NetworkClient *_cur = nullptr;
+  Slot *_cur = nullptr;
+  bool _keepAlive = false;
   std::vector<std::pair<String, String>> _args;
   String _body, _hdrs;
   bool _sent = false;
+
+  static bool _pending(const Slot &s) { return s.outOff < s.out.length() || (s.ext && s.extOff < s.extLen); }
+
+  void _close(Slot &s) {
+    s.c.stop();
+    s.used = s.served = s.closeAfter = false;
+    s.buf = String();
+    s.out = String();
+    s.outOff = s.extLen = s.extOff = 0;
+    s.ext = nullptr;
+  }
+
+  // A free slot; when full, the oldest idle one; failing that, the oldest.
+  int _pickSlot() {
+    int idle = -1, oldest = 0;
+    for (int i = 0; i < MW_SLOTS; i++) {
+      if (!_s[i].used) return i;
+      bool isIdle = !_pending(_s[i]) && _s[i].buf.length() == 0;
+      if (isIdle && (idle < 0 || _s[i].since < _s[idle].since)) idle = i;
+      if (_s[i].since < _s[oldest].since) oldest = i;
+    }
+    int k = idle >= 0 ? idle : oldest;
+    _close(_s[k]);
+    return k;
+  }
+
+  // Send as much of the queued reply as the socket takes right now.
+  void _pump(Slot &s) {
+    int fd = s.c.fd();
+    if (fd < 0) { _close(s); return; }
+    while (_pending(s)) {
+      const uint8_t *p;
+      size_t n;
+      bool head = s.outOff < s.out.length();
+      if (head) { p = (const uint8_t *)s.out.c_str() + s.outOff; n = s.out.length() - s.outOff; }
+      else      { p = s.ext + s.extOff; n = s.extLen - s.extOff; }
+      if (n > 4096) n = 4096;
+      int w = ::send(fd, p, n, MSG_DONTWAIT);
+      if (w > 0) {
+        if (head) s.outOff += w; else s.extOff += w;
+        s.since = millis();
+        continue;
+      }
+      if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {   // socket full: later
+        if (millis() - s.since > MW_STALL_MS) _close(s);
+        return;
+      }
+      _close(s);                                                   // client gone
+      return;
+    }
+    // reply fully sent
+    s.out = String();
+    s.outOff = s.extLen = s.extOff = 0;
+    s.ext = nullptr;
+    if (s.closeAfter) { _close(s); return; }
+    s.served = true;
+    s.since = millis();
+  }
 
   static String _decode(const String &in) {
     String o;
@@ -151,7 +223,7 @@ class MiniWeb {
     }
   }
 
-  // Returns true if the slot was served (and closed).
+  // Returns true if a complete request was found and a reply queued.
   bool _tryServe(Slot &s) {
     int he = s.buf.indexOf("\r\n\r\n");
     if (he < 0) return false;
@@ -159,61 +231,71 @@ class MiniWeb {
     int le = head.indexOf("\r\n");
     String line = le < 0 ? head : head.substring(0, le);
     int sp1 = line.indexOf(' '), sp2 = line.indexOf(' ', sp1 + 1);
-    if (sp1 < 0 || sp2 < 0) { s.c.stop(); s.used = false; return true; }
+    if (sp1 < 0 || sp2 < 0) { _close(s); return false; }
     String method = line.substring(0, sp1);
     String url = line.substring(sp1 + 1, sp2);
+    bool http10 = line.endsWith("HTTP/1.0");
 
-    size_t clen = 0;
-    bool form = false;
     String lower = head;
     lower.toLowerCase();
+    size_t clen = 0;
     int ci = lower.indexOf("\r\ncontent-length:");
     if (ci >= 0) clen = lower.substring(ci + 17, lower.indexOf("\r\n", ci + 2)).toInt();
-    if (lower.indexOf("application/x-www-form-urlencoded") >= 0) form = true;
-    if (clen > MW_MAX_BODY) { s.c.stop(); s.used = false; return true; }
-    if (s.buf.length() < (size_t)he + 4 + clen) return false;           // body still coming
+    bool form = lower.indexOf("application/x-www-form-urlencoded") >= 0;
+    bool wantsClose = lower.indexOf("\r\nconnection: close") >= 0;
+    bool wantsKeep = lower.indexOf("\r\nconnection: keep-alive") >= 0;
+
+    _cur = &s;
+    _hdrs = "";
+    _sent = false;
+    _keepAlive = http10 ? wantsKeep : !wantsClose;
+
+    if (clen > MW_MAX_BODY) {                                        // too big: say so
+      _keepAlive = false;
+      send(413, "application/json", "{\"ok\":false,\"msg\":\"Too big\"}");
+      s.buf = String();
+      _cur = nullptr;
+      return true;
+    }
+    if (s.buf.length() < (size_t)he + 4 + clen) { _cur = nullptr; return false; }   // body still coming
 
     _args.clear();
     _body = s.buf.substring(he + 4, he + 4 + clen);
-    _hdrs = "";
-    _sent = false;
+    s.buf.remove(0, he + 4 + clen);                                  // keep any next request
     String path = url;
     int q = url.indexOf('?');
     if (q >= 0) { path = url.substring(0, q); _parseArgs(url.substring(q + 1)); }
     if (form) { _parseArgs(_body); _body = ""; }
     int m = method == "GET" ? MW_GET : method == "POST" ? MW_POST : MW_ANY;
 
-    _cur = &s.c;
     bool found = false;
     for (auto &r : _routes) {
       if (r.uri == path && (r.method == MW_ANY || r.method == m)) { r.h(); found = true; break; }
     }
     if (!found && _notFound) _notFound();
     if (!_sent) send(500, "text/plain", "no response");
-    s.c.flush();
-    s.c.stop();
-    s.used = false;
-    s.buf = "";
+    _body = String();
+    _args.clear();
     _cur = nullptr;
     return true;
   }
 
-  void _writeHead(int code, const char *type, size_t len) {
-    if (!_cur || _sent) return;
+  // Queue the status line + headers. False if there's no request or it was already answered.
+  bool _begin(int code, const char *type, size_t len) {
+    if (!_cur || _sent) return false;
     _sent = true;
-    const char *txt = code == 200 ? "OK" : code == 302 ? "Found" : code == 400 ? "Bad Request" : code == 404 ? "Not Found" : "Error";
-    String h = "HTTP/1.1 " + String(code) + " " + txt + "\r\nContent-Type: " + type +
-               "\r\nContent-Length: " + String(len) + "\r\nConnection: close\r\n" + _hdrs + "\r\n";
-    _write((const uint8_t *)h.c_str(), h.length());
-  }
-  void _write(const uint8_t *p, size_t len) {
-    if (!_cur) return;
-    uint32_t t0 = millis();
-    while (len > 0 && _cur->connected() && millis() - t0 < 8000) {
-      size_t w = _cur->write(p, min(len, (size_t)2048));
-      if (w == 0) { delay(2); continue; }
-      p += w;
-      len -= w;
-    }
+    _cur->closeAfter = !_keepAlive;
+    const char *txt = code == 200 ? "OK" : code == 302 ? "Found" : code == 400 ? "Bad Request" :
+                      code == 404 ? "Not Found" : code == 413 ? "Payload Too Large" : "Error";
+    String &o = _cur->out;
+    o = "HTTP/1.1 ";
+    o += code; o += ' '; o += txt;
+    o += "\r\nContent-Type: "; o += type;
+    o += "\r\nContent-Length: "; o += (unsigned)len;
+    o += _keepAlive ? "\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5\r\n" : "\r\nConnection: close\r\n";
+    o += _hdrs;
+    o += "\r\n";
+    _cur->outOff = 0;
+    return true;
   }
 };

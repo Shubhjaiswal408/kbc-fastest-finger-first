@@ -125,11 +125,28 @@ with auto-channel routers), the host follows, and the buzzers find it again by t
 
 ## 8. The host's web server
 
-The ESP32's built-in web server handles one browser connection at a time, and it **waits up to
-5 seconds** for a connection that says nothing. Browsers open such "spare" connections, which
-froze the site. KBC Buzzer uses its own small server (`KBC_Host/mini_web.h`) that keeps 6
-connections open side by side and drops silent ones. The **game and radio run in a separate
-task**, so even a slow web page can never pause a round.
+The ESP32's built-in web server handles one browser connection at a time. It **waits up to
+5 seconds** for a connection that says nothing, and it waits while a slow phone reads its reply.
+KBC Buzzer uses its own small server instead (`KBC_Host/mini_web.h`):
+
+- it keeps 8 connections open side by side, and drops silent ones;
+- it **reuses connections** (keep-alive), so the page's 200 ms polling doesn't open a new
+  connection every time;
+- it **never waits on a client**: each reply is queued and sent bit by bit, so one slow phone
+  can't hold up the others.
+
+**Both CPU cores are used:**
+
+| Core | Runs |
+|---|---|
+| Core 0 | Wi-Fi stack + the web server |
+| Core 1 | Game and radio (high priority, alone), woken the moment a packet arrives |
+
+Saving to flash pauses both cores for a moment, so player and score saves wait about 1.5 s and
+never happen in the middle of a press.
+
+**Grace after the lock:** the host waits 0.3 s between *lock* and *reveal*. A press made just
+before the lock, still in the air, is counted for both battery and USB buzzers.
 
 The whole web app is one HTML file, **gzip-compressed** inside the firmware (about 28 KB). It
 loads in well under a second.

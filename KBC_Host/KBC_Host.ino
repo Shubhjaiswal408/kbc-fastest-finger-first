@@ -30,7 +30,7 @@
 #define HOME_WIFI_PASS ""
 #endif
 
-#define FW_VERSION_STR "1.2.0"
+#define FW_VERSION_STR "1.3.0"
 #define LED_PIN        2
 #define MAX_PLAYERS    40
 #define ONLINE_MS      3500
@@ -169,6 +169,12 @@ static String   qText;
 static String   qOpt[4];
 static int      qIndex = -1;
 static uint32_t stateVersion = 1;
+// Reveal waits this long after the lock, so presses made just before the lock
+// (still in the air, ~0.1 s for a battery buzzer) are counted first.
+#define REVEAL_GRACE_US 300000
+#define LATE_PRESS_US   250000      // USB-buzzer press arriving just after the lock
+static bool     revealPending = false;
+static uint8_t  revealAns = 0xFF;
 
 // ---------------------------------------------------------------------------
 static Preferences prefs;
@@ -228,10 +234,22 @@ static bool isOnline(const Player &p) {
 // ============================================================================
 //  Persistence
 // ============================================================================
-static void savePlayers() {
-  PlayerSaved buf[MAX_PLAYERS];
+// Flash writes stall BOTH cores for 10-100 ms, so player saves are deferred:
+// savePlayers() only marks them dirty, and loop() writes them a moment later,
+// outside the game lock and never in the middle of a press.
+static volatile bool playersDirty = false;
+static volatile uint32_t playersDirtyAt = 0;
+static void savePlayers() { playersDirty = true; playersDirtyAt = millis(); }
+
+static void flushPlayers() {
+  if (!playersDirty) return;
+  static PlayerSaved buf[MAX_PLAYERS];
   size_t n = 0;
-  for (auto &p : players) if (p.used) buf[n++] = p.d;
+  {
+    GameLock g;
+    for (auto &p : players) if (p.used) buf[n++] = p.d;
+    playersDirty = false;
+  }
   prefs.putBytes("players", buf, n * sizeof(PlayerSaved));
 }
 
@@ -348,7 +366,7 @@ static void sendState() {
   m.correct = (phase == PH_REVEAL) ? correct : 0xFF;
   int64_t now = esp_timer_get_time();
   if (phase == PH_OPEN) m.elapsedUs = (uint32_t)(now - openAtUs);
-  else if (phase == PH_LOCKED || phase == PH_REVEAL) m.elapsedUs = (uint32_t)(now - openAtUs);
+  else if (phase == PH_LOCKED || phase == PH_REVEAL) m.elapsedUs = (uint32_t)(lockAtUs - openAtUs);
   if (phase == PH_COUNTDOWN) m.countdownMs = (uint32_t)max<int64_t>(0, (cdEndUs - now) / 1000);
   m.limitMs = limitMs;
   if (phase == PH_REVEAL && winner >= 0) memcpy(m.winner, players[winner].d.mac, 6);
@@ -380,7 +398,7 @@ static void sendIdentify(const uint8_t *mac) {
   fillHeader(m.h, MSG_IDENTIFY);
   memcpy(m.to, mac, 6);
   m.ms = 3000;
-  for (int i = 0; i < 3; i++) { esp_now_send(BCAST, (uint8_t *)&m, sizeof(m)); delay(5); }
+  for (int i = 0; i < 3; i++) esp_now_send(BCAST, (uint8_t *)&m, sizeof(m));   // queued by the radio, no wait
 }
 
 static void setPhase(uint8_t ph) {
@@ -447,6 +465,7 @@ static void revealRound(uint8_t ans) {
 }
 
 static void clearAnswers() {
+  revealPending = false;
   for (auto &p : players) {
     p.ans = AN_NONE; p.choice = 0xFF; p.reactUs = 0; p.hostUs = 0; p.result = RES_NONE; p.pts = 0;
   }
@@ -481,6 +500,10 @@ static void resetRound() {
 
 static void tickRound() {
   int64_t now = esp_timer_get_time();
+  if (revealPending) {
+    if (phase != PH_LOCKED) revealPending = false;
+    else if (now - lockAtUs >= REVEAL_GRACE_US) { revealPending = false; revealRound(revealAns); }
+  }
   if (phase == PH_COUNTDOWN && now >= cdEndUs) {
     openAtUs = now;
     setPhase(PH_OPEN);
@@ -505,7 +528,10 @@ static void handlePress(const RxItem &it, Player *p) {
   if (m->roundId != roundId) { sendAck(it.mac, ACK_CLOSED); return; }
   if (p->ans != AN_NONE) { sendAck(it.mac, p->ans == AN_FALSE ? ACK_FALSE_START : ACK_DUPLICATE); return; }
 
-  int64_t hostElapsed = (phase == PH_OPEN) ? it.atUs - openAtUs : -1;
+  // Pressed before the lock but arrived just after it -> still counts (like battery buzzers).
+  bool late = phase == PH_LOCKED && !m->early && it.atUs - lockAtUs < LATE_PRESS_US &&
+              m->reactionUs <= (uint32_t)(lockAtUs - openAtUs);
+  int64_t hostElapsed = (phase == PH_OPEN || late) ? it.atUs - openAtUs : -1;
   bool tooEarly = phase == PH_COUNTDOWN || (phase == PH_OPEN && m->early && hostElapsed < 150000);
 
   if (tooEarly) {
@@ -519,7 +545,7 @@ static void handlePress(const RxItem &it, Player *p) {
     }
     return;
   }
-  if (phase != PH_OPEN) { sendAck(it.mac, ACK_CLOSED); return; }
+  if (phase != PH_OPEN && !late) { sendAck(it.mac, ACK_CLOSED); return; }
 
   // Question with only 2 or 3 options: a button for a missing option does nothing,
   // so the student can still press a real one.
@@ -585,9 +611,8 @@ static void handleBPress(const RxItem &it, Player *p) {
   if (S.mode == 1 && phase == PH_OPEN) lockRound();
 }
 
-static void processRx() {
-  RxItem it;
-  while (xQueueReceive(rxQ, &it, 0) == pdTRUE) {
+static void handleRx(const RxItem &it) {
+  {
     const MsgHeader *h = (const MsgHeader *)it.data;
     Player *p = nullptr;
     switch (h->type) {
@@ -780,7 +805,7 @@ static void setupWeb() {
     qText = server.arg("q").substring(0, 300);
     for (int i = 0; i < 4; i++) qOpt[i] = server.arg("o" + String(i)).substring(0, 120);
     qIndex = server.hasArg("qi") ? server.arg("qi").toInt() : -1;
-    long lim = server.hasArg("lim") ? server.arg("lim").toInt() : S.limitS;
+    long lim = server.hasArg("lim") ? constrain(server.arg("lim").toInt(), 0L, 3600L) : (long)S.limitS;
     int ans = server.hasArg("ans") ? server.arg("ans").toInt() : -1;
     startRound(lim > 0 ? lim * 1000 : 0, (ans >= 0 && ans <= 3) ? ans : 0xFF);
     ok("started");
@@ -792,7 +817,10 @@ static void setupWeb() {
     int ans = server.hasArg("ans") ? server.arg("ans").toInt() : (correct == 0xFF ? -1 : correct);
     if (S.mode == 0 && (ans < 0 || ans > 3)) return fail("Choose the correct answer first");
     if (phase != PH_LOCKED && phase != PH_OPEN && phase != PH_COUNTDOWN) return fail("Nothing to reveal");
-    revealRound(ans >= 0 && ans <= 3 ? ans : 0xFF);
+    // Lock now, reveal after a short grace so presses still in the air are counted.
+    if (phase == PH_OPEN || phase == PH_COUNTDOWN) lockRound();
+    revealAns = (ans >= 0 && ans <= 3) ? ans : 0xFF;
+    revealPending = true;
     ok();
   });
 
@@ -876,6 +904,8 @@ static void setupWeb() {
   onApi("/api/restart", MW_POST, []() { ok("Restarting"); restartPending = true; restartAt = millis() + 500; });
 
   onApi("/api/factory", MW_POST, []() {
+    for (auto &p : players) p.used = false;
+    playersDirty = false;                  // don't write the old players back before restarting
     prefs.clear();
     LittleFS.remove("/questions.json");
     ok("Factory reset. Restarting");
@@ -896,6 +926,7 @@ static void setupWeb() {
   // Log lines after ?after=<seq> (max 120 per call). Source "" = host.
   server.on("/api/logs", MW_GET, []() {
     uint32_t after = server.arg("after").toInt();
+    if (after > logSeq) after = 0;                 // host restarted: send from the start
     String o;
     {
     GameLock g;                                  // build under the lock, send without it
@@ -957,6 +988,7 @@ static void setupWeb() {
 //  Setup / loop
 // ============================================================================
 void setup() {
+  Serial.setTxBufferSize(2048);   // logging never blocks the game task
   Serial.begin(115200);
   delay(50);
   pinMode(LED_PIN, OUTPUT);
@@ -1009,7 +1041,10 @@ void setup() {
 
   if (MDNS.begin(S.hostName.c_str())) MDNS.addService("http", "tcp", 80);
   setupWeb();
-  xTaskCreatePinnedToCore(gameTask, "game", 8192, nullptr, 3, nullptr, 1);
+  // Both cores: game + radio on core 1 (high priority, alone), web server on
+  // core 0 next to the Wi-Fi stack. A busy web page can't delay a press.
+  xTaskCreatePinnedToCore(gameTask, "game", 8192, nullptr, 5, nullptr, 1);
+  xTaskCreatePinnedToCore(webTask, "web", 12288, nullptr, 2, nullptr, 0);
 
   Serial.println();
   Serial.println("==============================================");
@@ -1025,32 +1060,40 @@ void setup() {
                     WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString().c_str() : "not connected");
 }
 
-// Game + radio: runs every millisecond no matter what the web server is doing.
+// Game + radio (core 1): wakes the moment a packet arrives, and at least every 2 ms.
 static void gameTask(void *) {
+  RxItem it;
   for (;;) {
-    {
-      GameLock g;
-      processRx();
-      tickRound();
-      // State heartbeat: fast while a round is live, slower otherwise.
-      uint32_t now = millis();
-      uint32_t every = burst ? 25 : ((phase == PH_COUNTDOWN || phase == PH_OPEN) ? 150 : 400);
-      if (now - lastStateTx >= every) {
-        if (burst) burst--;
-        sendState();
-      }
+    bool got = xQueueReceive(rxQ, &it, pdMS_TO_TICKS(2)) == pdTRUE;
+    GameLock g;
+    if (got) {
+      handleRx(it);
+      while (xQueueReceive(rxQ, &it, 0) == pdTRUE) handleRx(it);
     }
+    tickRound();
+    // State heartbeat: fast while a round is live, slower otherwise.
+    uint32_t now = millis();
+    uint32_t every = burst ? 25 : ((phase == PH_COUNTDOWN || phase == PH_OPEN) ? 150 : 400);
+    if (now - lastStateTx >= every) {
+      if (burst) burst--;
+      sendState();
+    }
+  }
+}
+
+// Web server (core 0). Replies are queued and sent without waiting on the client.
+static void webTask(void *) {
+  for (;;) {
+    server.handleClient();
     vTaskDelay(1);
   }
 }
 
+// Arduino loop (core 1, lowest priority): LED, deferred saves, restart.
 void loop() {
-  server.handleClient();          // may block on a slow client - the game task keeps running
-
   uint32_t now = millis();
-  // Status LED: blink when idle, solid while answering is open
-  digitalWrite(LED_PIN, phase == PH_OPEN ? HIGH : (now % 2000 < 60));
-
-  if (restartPending && (int32_t)(now - restartAt) >= 0) ESP.restart();
-  delay(2);
+  digitalWrite(LED_PIN, phase == PH_OPEN ? HIGH : (now % 2000 < 60));   // solid while answering
+  if (playersDirty && (now - playersDirtyAt > 1500 || restartPending)) flushPlayers();
+  if (restartPending && (int32_t)(now - restartAt) >= 0) { flushPlayers(); ESP.restart(); }
+  delay(20);
 }
