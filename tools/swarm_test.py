@@ -16,15 +16,43 @@ ap.add_argument("--ports", nargs="+", default=["COM22", "COM27"])
 ap.add_argument("--per-board", type=int, default=15)
 ap.add_argument("--rounds", type=float, default=1.0, help="scale the number of rounds")
 ap.add_argument("--browsers", type=int, default=4)
+ap.add_argument("--only", default="", help="run only scenarios whose name contains this")
 args = ap.parse_args()
 H = "http://" + args.host
 random.seed(7)
 
 
+api_retries, slow = [0], []
+_local = threading.local()
+
+
 def api(path, data=None, timeout=5):
-    body = urllib.parse.urlencode(data).encode() if data is not None else None
-    with urllib.request.urlopen(H + path, data=body, timeout=timeout) as r:
-        return json.loads(r.read())
+    """One request over a kept-alive connection (like a browser); retried if it drops.
+    Every reply slower than 1 s is recorded with its time."""
+    import http.client
+    body = urllib.parse.urlencode(data) if data is not None else None
+    for attempt in range(4):
+        t = time.time()
+        try:
+            c = getattr(_local, "c", None)
+            if c is None:
+                c = _local.c = http.client.HTTPConnection(args.host, 80, timeout=timeout)
+            if body is None: c.request("GET", path)
+            else: c.request("POST", path, body, {"Content-Type": "application/x-www-form-urlencoded"})
+            r = c.getresponse(); raw = r.read()
+            if (r.getheader("Connection") or "").lower() == "close": c.close(); _local.c = None
+            dt = time.time() - t
+            if dt > 1: slow.append((time.strftime("%H:%M:%S"), path, round(dt, 1)))
+            if r.status == 503: raise ConnectionError("busy " + raw[:60].decode(errors="replace"))
+            return json.loads(raw)
+        except (ConnectionError, OSError, http.client.HTTPException, ValueError) as e:
+            slow.append((time.strftime("%H:%M:%S"), path, f"failed: {type(e).__name__} {e}"[:90]))
+            try: _local.c.close()
+            except Exception: pass
+            _local.c = None
+            if attempt == 3: raise
+            api_retries[0] += 1
+            time.sleep(0.3)
 
 
 def state():
@@ -74,7 +102,7 @@ class Board:
 
 
 # ---------------------------------------------------------------- browsers
-lat, web_err, stop = [], [0], [False]
+lat, web_err, stop, blk = [], [0], [False], []
 
 
 def browser():
@@ -86,8 +114,11 @@ def browser():
         try:
             if c is None: c = http.client.HTTPConnection(args.host, 80, timeout=4)
             c.request("GET", "/api/state")
-            r = c.getresponse(); r.read()
+            r = c.getresponse(); raw = r.read()
             lat.append((time.perf_counter() - t) * 1000)
+            if r.status == 200 and len(blk) < 100000:
+                try: blk.append(json.loads(raw).get("blk", 0) or 0)
+                except ValueError: web_err[0] += 1
             if (r.getheader("Connection") or "").lower() == "close": c.close(); c = None
         except Exception:
             web_err[0] += 1; c = None
@@ -222,10 +253,18 @@ def main():
         p.update({i: (random.randint(3850, 3960), c) for i in random.sample(ids, 6)})
         scen.append(("teacher locks at 4 s", p, 20, c, 4.0))
 
-    totals = {}
+    if args.only: scen = [x for x in scen if args.only in x[0]]
+    totals, failed_rounds = {}, []
     t_start = time.time()
     for n, (name, plan, lim, c, tl) in enumerate(scen, 1):
-        s = run_round(boards, name, plan, lim, c, tl)
+        try:
+            s = run_round(boards, name, plan, lim, c, tl)
+        except Exception as e:
+            print(f"[{n:2}/{len(scen)}] {name:<28} ROUND FAILED: {type(e).__name__} {e}")
+            failed_rounds.append((n, name, str(e)))
+            try: api("/api/reset", {})
+            except Exception: pass
+            continue
         r = evaluate(s, plan, c, kinds)
         T = totals.setdefault(name, dict(rounds=0, expected=0, ok=0, lost=0, wrongstatus=0, extra=0, edge=0,
                                          errs_b=[], errs_u=[], win=0, wins=0))
@@ -250,14 +289,18 @@ def main():
         if u: print(f"{'':<28} timing error USB:     median {st.median(u):.1f} ms, max {max(u):.1f} ms")
     retries = [t for b in boards for (_, s_, t) in b.acks if s_ != 0]
     noreply = sum(1 for b in boards for (_, s_, _) in b.acks if s_ == 0)
-    print(f"\nall rounds: {allok}/{allexp} correct outcomes in {dur/60:.1f} min")
+    print(f"\nall rounds: {allok}/{allexp} correct outcomes in {dur/60:.1f} min, rounds failed: {len(failed_rounds)}")
     if retries: print(f"sends per press: average {st.mean(retries):.2f}, max {max(retries)}  | presses with no reply: {noreply}")
     if lat:
         L = sorted(lat)
         print(f"web ({args.browsers} browsers polling): {len(L)} requests, median {st.median(L):.0f} ms, "
               f"95% {L[int(len(L)*0.95)]:.0f} ms, worst {L[-1]:.0f} ms, failed {web_err[0]}")
+    print(f"test-script requests retried: {api_retries[0]}")
+    for x in slow[:15]: print("   slow/failed request:", *x)
+    if lat:
+        print(f"browser replies over 1 s: {sum(1 for x in lat if x > 1000)}")
     s = state()
-    print(f"host free memory at end: {s['heap']} bytes, uptime {s['up']} s")
+    print(f"host free memory at end: {s['heap']} bytes (largest block {s.get('blk')}), lowest block seen {min(blk) if blk else '?'}, uptime {s['up']} s")
     cleanup(orig)
 
 

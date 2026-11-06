@@ -129,7 +129,7 @@ The ESP32's built-in web server handles one browser connection at a time. It **w
 5 seconds** for a connection that says nothing, and it waits while a slow phone reads its reply.
 KBC Buzzer uses its own small server instead (`KBC_Host/mini_web.h`):
 
-- it keeps 8 connections open side by side, and drops silent ones;
+- it keeps 12 connections open side by side, and drops silent ones;
 - it **reuses connections** (keep-alive), so the page's 200 ms polling doesn't open a new
   connection every time;
 - it **never waits on a client**: each reply is queued and sent bit by bit, so one slow phone

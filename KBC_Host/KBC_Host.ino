@@ -705,16 +705,23 @@ static void handleRx(const RxItem &it) {
 // ============================================================================
 // Builds the state JSON into o. Reserves the whole size first, so it never
 // grows in small steps (a failed grow would silently drop text). False = no memory.
+static uint32_t stateFails = 0;
 static bool stateJson(String &o) {
   size_t need = 1600 + qText.length() + S.title.length() + S.apSsid.length() + S.staSsid.length() + S.hostName.length();
   for (auto &q : qOpt) need += q.length();
   for (auto &p : players) if (p.used) need += 260 + 2 * strlen(p.d.name);
-  if (!o.reserve(need)) return false;
+  if (!o.reserve(need)) {
+    stateFails++;
+    hlogf("[web] state: no memory for %u bytes (largest free block %u)", (unsigned)need, (unsigned)ESP.getMaxAllocHeap());
+    return false;
+  }
   int64_t now = esp_timer_get_time();
   o += "{\"v\":"; o += stateVersion;
   o += ",\"fw\":\"" FW_VERSION_STR "\"";
   o += ",\"up\":"; o += millis() / 1000;
   o += ",\"heap\":"; o += ESP.getFreeHeap();
+  o += ",\"blk\":"; o += ESP.getMaxAllocHeap();      // largest free block (fragmentation check)
+  o += ",\"sfail\":"; o += stateFails;
   o += ",\"phase\":"; o += phase;
   o += ",\"round\":"; o += roundId;
   o += ",\"cdLeft\":"; o += (phase == PH_COUNTDOWN) ? (long)max<int64_t>(0, (cdEndUs - now) / 1000) : 0;
@@ -795,7 +802,12 @@ static bool stateJson(String &o) {
   o += ",\"host\":"; jsonStr(o, S.hostName);
   o += ",\"clients\":"; o += WiFi.softAPgetStationNum();
   o += "}}";
-  return o.length() <= need;            // still inside the reserved block -> nothing was dropped
+  if (o.length() > need) {              // grew past the reserved block: a part may be missing
+    stateFails++;
+    hlogf("[web] state: %u bytes, more than the %u reserved", (unsigned)o.length(), (unsigned)need);
+    return false;
+  }
+  return true;
 }
 
 static void ok(const char *msg = "ok") {
@@ -836,18 +848,18 @@ static void setupWeb() {
       static std::shared_ptr<String> pool[3];
       std::shared_ptr<String> s;
       for (auto &b : pool) {
-        if (!b) { b = std::make_shared<String>(); b->reserve(8192); }
+        if (!b) { b = std::make_shared<String>(); b->reserve(2400 + 290 * MAX_PLAYERS); }   // full size up front
         if (b.use_count() == 1) { *b = ""; s = b; break; }
       }
       if (!s) s = std::make_shared<String>();     // all 3 busy: a one-off buffer
       bool good;
       { GameLock g; cacheVer = stateVersion; good = stateJson(*s); }
-      if (!good) {
+      if (!good && !cache) {
         server.send(503, "application/json", "{\"ok\":false,\"msg\":\"busy\"}");
         return;
       }
-      cache = s;
-      cacheAt = now;
+      if (!good) s = nullptr;                      // keep serving the last good copy (<= 40 ms old)
+      if (s) { cache = s; cacheAt = now; }
     }
     server.sendHeader("Cache-Control", "no-store");
     server.sendShared(200, "application/json", cache);
@@ -990,7 +1002,8 @@ static void setupWeb() {
     ok(m);
   });
 
-  // Log lines after ?after=<seq> (max 120 per call). Source "" = host.
+  // Log lines after ?after=<seq>, at most 40 per call ("last" = the last one sent,
+  // so the page fetches the rest on its next polls). Source "" = host.
   server.on("/api/logs", MW_GET, []() {
     uint32_t after = server.arg("after").toInt();
     if (after > logSeq) after = 0;                 // host restarted: send from the start
@@ -999,16 +1012,17 @@ static void setupWeb() {
     GameLock g;                                  // build under the lock, send without it
     uint32_t first = logSeq > LOG_LINES ? logSeq - LOG_LINES + 1 : 1;
     if (after + 1 > first) first = after + 1;
-    if (logSeq >= first && logSeq - first + 1 > 120) first = logSeq - 119;
+    uint32_t upto = logSeq;
+    if (logSeq >= first && logSeq - first + 1 > 40) upto = first + 39;
     size_t need = 96;                            // reserve exactly what these lines need
-    for (uint32_t s = first; s <= logSeq && logSeq; s++) {
+    for (uint32_t s = first; s <= upto && logSeq; s++) {
       const LogLine &L = logRing[(s - 1) % LOG_LINES];
       if (L.seq == s) need += 72 + 2 * strlen(L.text);
     }
     if (!o.reserve(need)) { server.send(503, "application/json", "{\"ok\":false}"); return; }
-    o += "{\"last\":"; o += logSeq; o += ",\"now\":"; o += millis(); o += ",\"lines\":[";
+    o += "{\"last\":"; o += (logSeq >= first ? upto : logSeq); o += ",\"now\":"; o += millis(); o += ",\"lines\":[";
     bool firstLine = true;
-    for (uint32_t s = first; s <= logSeq && logSeq; s++) {
+    for (uint32_t s = first; s <= upto && logSeq; s++) {
       const LogLine &L = logRing[(s - 1) % LOG_LINES];     // seq s lives at index s-1
       if (L.seq != s) continue;                              // cleared
       if (!firstLine) o += ',';

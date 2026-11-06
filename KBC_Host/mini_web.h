@@ -25,7 +25,7 @@
 #include <memory>
 #include <vector>
 
-#define MW_SLOTS        8
+#define MW_SLOTS        12
 #define MW_IDLE_MS      3000    // a new connection must send its request within this
 #define MW_KEEPALIVE_MS 6000    // an idle kept-alive connection is closed after this
 #define MW_STALL_MS     10000   // a client that stops reading its reply is dropped
@@ -167,16 +167,21 @@ class MiniWeb {
     s.shared.reset();
   }
 
-  // A free slot; when full, the oldest idle one; failing that, the oldest.
+  // A free slot. When full, close (in this order): the oldest kept-alive connection
+  // that is idle between requests (the browser just reconnects), a silent new one
+  // older than 1 s, or the oldest of all. Never a connection that's mid-request.
   int _pickSlot() {
-    int idle = -1, oldest = 0;
+    int kept = -1, silent = -1, oldest = 0;
+    uint32_t now = millis();
     for (int i = 0; i < MW_SLOTS; i++) {
-      if (!_s[i].used) return i;
-      bool isIdle = !_pending(_s[i]) && _s[i].buf.length() == 0;
-      if (isIdle && (idle < 0 || _s[i].since < _s[idle].since)) idle = i;
-      if (_s[i].since < _s[oldest].since) oldest = i;
+      Slot &s = _s[i];
+      if (!s.used) return i;
+      bool idle = !_pending(s) && s.buf.length() == 0;
+      if (idle && s.served && (kept < 0 || s.since < _s[kept].since)) kept = i;
+      if (idle && !s.served && now - s.since > 1000 && (silent < 0 || s.since < _s[silent].since)) silent = i;
+      if (s.since < _s[oldest].since) oldest = i;
     }
-    int k = idle >= 0 ? idle : oldest;
+    int k = kept >= 0 ? kept : silent >= 0 ? silent : oldest;
     _close(_s[k]);
     return k;
   }
