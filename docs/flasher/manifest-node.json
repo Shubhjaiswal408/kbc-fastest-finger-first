@@ -1,6 +1,0 @@
-{
-  "name": "KBC Buzzer - USB buzzer (ESP32)",
-  "version": "1.10",
-  "new_install_prompt_erase": true,
-  "builds": [ { "chipFamily": "ESP32", "parts": [ { "path": "firmware/kbc-usb-buzzer.bin", "offset": 0 } ] } ]
-}

@@ -144,9 +144,10 @@ the MTDO pad on the back.
 ## Flashing the firmware
 
 **Easiest: the [web flasher](https://shubhjaiswal408.github.io/kbc-fastest-finger-first/flasher/).** Open it in Chrome or Edge on a computer, plug the board in,
-press *Install* on its card. It installs ready-built firmware for the host, the C3 battery buzzer,
-the USB buzzer and the XIAO C6. (The public host firmware has no Wi-Fi password built in; set your
-school Wi-Fi in the host's *Settings*.)
+press *Install* on its card. It installs ready-built firmware for the two boards you need: the
+**C3 SuperMini buzzer** and the **host**. (The public host firmware has no Wi-Fi password built in;
+set your school Wi-Fi in the host's *Settings*.) The USB and XIAO C6 buzzers are built from source
+(table below).
 
 **Or build it yourself** with Arduino IDE 2 and **esp32 by Espressif** version **3.x**. No extra libraries.
 

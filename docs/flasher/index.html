@@ -62,7 +62,7 @@ footer{margin-top:46px;color:var(--muted);font-size:14px}
 
   <div class="grid">
     <div class="card rec">
-      <span class="tag">Recommended buzzer</span>
+      <span class="tag">Buzzer · one per student</span>
       <h2>Battery buzzer</h2>
       <p class="meta">ESP32-C3 SuperMini · firmware <b>KBC_BatteryC3</b> v2.02</p>
       <ol>
@@ -82,7 +82,7 @@ footer{margin-top:46px;color:var(--muted);font-size:14px}
     <div class="card">
       <span class="tag">One per room</span>
       <h2>Host</h2>
-      <p class="meta">ESP32 dev board · firmware <b>KBC_Host</b> v1.2.0</p>
+      <p class="meta">ESP32 dev board · firmware <b>KBC_Host</b> v1.3.0</p>
       <ol>
         <li>Plug the ESP32 into USB and press Install.</li>
         <li>Stuck on "Connecting…"? <b>Hold the BOOT button</b> until the install starts.</li>
@@ -98,38 +98,6 @@ footer{margin-top:46px;color:var(--muted);font-size:14px}
       </esp-web-install-button>
     </div>
 
-    <div class="card">
-      <span class="tag">Buzzer on USB power</span>
-      <h2>USB buzzer</h2>
-      <p class="meta">ESP32 dev board · firmware <b>KBC_Node</b> v1.10</p>
-      <ul>
-        <li>Always listening, with full LED feedback ("answer now", winner strobe).</li>
-        <li>Buttons on GPIO 32 / 33 / 25 / 26 to GND.</li>
-        <li>Stuck on "Connecting…"? Hold BOOT until the install starts.</li>
-      </ul>
-      <div class="spacer"></div>
-      <esp-web-install-button manifest="manifest-node.json">
-        <button slot="activate">Install USB buzzer</button>
-        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
-        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
-      </esp-web-install-button>
-    </div>
-
-    <div class="card">
-      <span class="tag">Alternative battery board</span>
-      <h2>XIAO C6 buzzer</h2>
-      <p class="meta">Seeed XIAO ESP32-C6 · firmware <b>KBC_BatteryC6</b> v2.00 (beta)</p>
-      <ul>
-        <li>Lowest sleep current; button D uses the MTDO pad on the back.</li>
-        <li>Not in the port list? Press RESET (it stays awake 8 s), or hold BOOT while plugging in.</li>
-      </ul>
-      <div class="spacer"></div>
-      <esp-web-install-button manifest="manifest-c6.json">
-        <button slot="activate">Install XIAO C6 buzzer</button>
-        <span slot="unsupported" class="unsup">This browser can't flash boards. Use Chrome or Edge on a computer.</span>
-        <span slot="not-allowed" class="unsup">Open this page over https to flash.</span>
-      </esp-web-install-button>
-    </div>
   </div>
 
   <section>
@@ -139,7 +107,7 @@ footer{margin-top:46px;color:var(--muted);font-size:14px}
       <tr><td>No port in the list</td><td>Use a <b>data</b> USB cable (some only charge). Battery buzzers sleep: hold BOOT, tap RESET, release BOOT.</td></tr>
       <tr><td>Host board not detected at all</td><td>Install the <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers">CP210x driver</a> (or CH340, depending on the board).</td></tr>
       <tr><td>"Failed to connect" / stuck on connecting</td><td>Hold BOOT while the install starts. Close the Arduino IDE Serial Monitor and any other program using the port.</td></tr>
-      <tr><td>"Wrong chip"</td><td>You picked the wrong card. The host and USB buzzer need an ESP32; the battery buzzer needs an ESP32-C3.</td></tr>
+      <tr><td>"Wrong chip"</td><td>You picked the wrong card. The host needs an ESP32 dev board; the buzzer needs an ESP32-C3 SuperMini.</td></tr>
       <tr><td>Install button says the browser isn't supported</td><td>Use desktop Chrome or Edge (Web Serial). Phones and Firefox/Safari can't flash.</td></tr>
     </table>
   </section>
