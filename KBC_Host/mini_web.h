@@ -22,6 +22,7 @@
 #include <lwip/sockets.h>
 #include <errno.h>
 #include <functional>
+#include <memory>
 #include <vector>
 
 #define MW_SLOTS        8
@@ -32,6 +33,8 @@
 #define MW_MAX_BODY     65536
 
 enum MiniMethod { MW_ANY = 0, MW_GET = 1, MW_POST = 2 };
+
+typedef std::shared_ptr<const String> SharedBody;   // one reply body shared by many clients
 
 class MiniWeb {
  public:
@@ -88,7 +91,19 @@ class MiniWeb {
 
   void send(int code, const char *type, const String &body) {
     if (!_begin(code, type, body.length())) return;
+    if (!_cur->out.reserve(_cur->out.length() + body.length())) {   // out of memory: never send half a reply
+      _cur->out = "HTTP/1.1 503 Busy\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+      _cur->closeAfter = true;
+      return;
+    }
     _cur->out += body;
+  }
+  // The same body for many clients without copying it (e.g. the state JSON).
+  void sendShared(int code, const char *type, SharedBody body) {
+    if (!body || !_begin(code, type, body->length())) return;
+    _cur->shared = body;
+    _cur->ext = (const uint8_t *)body->c_str();
+    _cur->extLen = body->length();
   }
   void send_P(int code, const char *type, const char *content) {
     size_t len = strlen(content);
@@ -123,8 +138,9 @@ class MiniWeb {
     String buf;                         // request bytes received so far
     String out;                         // queued reply (head + body)
     size_t outOff = 0;
-    const uint8_t *ext = nullptr;       // reply body that lives in flash
+    const uint8_t *ext = nullptr;       // reply body sent without copying (flash or shared)
     size_t extLen = 0, extOff = 0;
+    SharedBody shared;                  // keeps a shared body alive while sending
   };
   struct Route { String uri; int method; Handler h; };
 
@@ -148,6 +164,7 @@ class MiniWeb {
     s.out = String();
     s.outOff = s.extLen = s.extOff = 0;
     s.ext = nullptr;
+    s.shared.reset();
   }
 
   // A free slot; when full, the oldest idle one; failing that, the oldest.
@@ -192,6 +209,7 @@ class MiniWeb {
     s.out = String();
     s.outOff = s.extLen = s.extOff = 0;
     s.ext = nullptr;
+    s.shared.reset();
     if (s.closeAfter) { _close(s); return; }
     s.served = true;
     s.since = millis();

@@ -793,7 +793,13 @@ let polling = false;
 async function poll() {
   if (polling) return; polling = true;
   try {
-    const st = mock ? mock.state() : await (await fetchT('/api/state', { cache: 'no-store' })).json();
+    let st;
+    if (mock) st = mock.state();
+    else {
+      const r = await fetchT('/api/state', { cache: 'no-store' });
+      if (!r.ok) return;                          // host busy: try again on the next poll
+      st = await r.json();
+    }
     failCount = 0;
     prevS = S; S = st; recvAt = performance.now();
     onState();
@@ -1070,7 +1076,13 @@ async function pollLogs() {
   if (logPolling || $('#logPause').checked) return;
   logPolling = true;
   try {
-    const j = mock ? mock.logsAfter(logLast) : await (await fetchT('/api/logs?after=' + logLast, { cache: 'no-store' })).json();
+    let j;
+    if (mock) j = mock.logsAfter(logLast);
+    else {
+      const r = await fetchT('/api/logs?after=' + logLast, { cache: 'no-store' });
+      if (!r.ok) return;
+      j = await r.json();
+    }
     if (j.last < logLast) { logLines = []; logLast = 0; }        // host restarted or log cleared
     hostNowAt = { host: j.now, local: Date.now() };
     if (j.lines.length) { logLines.push(...j.lines); if (logLines.length > 1000) logLines = logLines.slice(-1000); logDirty = true; }

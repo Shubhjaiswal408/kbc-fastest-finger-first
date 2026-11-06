@@ -30,7 +30,7 @@
 #define HOME_WIFI_PASS ""
 #endif
 
-#define FW_VERSION_STR "1.3.0"
+#define FW_VERSION_STR "1.3.1"
 #define LED_PIN        2
 #define MAX_PLAYERS    40
 #define ONLINE_MS      3500
@@ -219,6 +219,15 @@ static void fillHeader(MsgHeader &h, uint8_t type) {
   h.type = type;
 }
 
+// ---------------------------------------------------------------------------
+//  Test mode (swarm test): one test board pretends to be many buzzers. Each of
+//  its packets ends with [SIM_TAG, simId]; the host then treats it as coming
+//  from a virtual buzzer 02:xx:xx:xx:5A:<simId>. Off at every boot, RAM only.
+// ---------------------------------------------------------------------------
+#define SIM_TAG 0x5A
+static bool simEnabled = false;
+static bool isSimMac(const uint8_t *m) { return m[0] == 0x02 && m[4] == SIM_TAG; }
+
 static Player *findPlayer(const uint8_t *mac) {
   for (auto &p : players) if (p.used && memcmp(p.d.mac, mac, 6) == 0) return &p;
   return nullptr;
@@ -329,7 +338,8 @@ static Player *registerPlayer(const uint8_t *mac) {
     uint8_t no = 1;
     while (no <= MAX_PLAYERS && usedNo[no]) no++;
     q.d.no = no;
-    snprintf(q.d.name, sizeof(q.d.name), "Player %u", no);
+    if (isSimMac(mac)) snprintf(q.d.name, sizeof(q.d.name), "Sim %02u", mac[5]);
+    else snprintf(q.d.name, sizeof(q.d.name), "Player %u", no);
     q.d.color = PALETTE[(no - 1) % (sizeof(PALETTE) / sizeof(PALETTE[0]))];
     q.d.score = 0;
     savePlayers();
@@ -611,6 +621,23 @@ static void handleBPress(const RxItem &it, Player *p) {
   if (S.mode == 1 && phase == PH_OPEN) lockRound();
 }
 
+// Test mode: strip the sim tag and swap in the virtual buzzer's address.
+static void simRewrite(RxItem &it) {
+  size_t base = 0;
+  switch (it.data[2]) {
+    case MSG_HELLO:  base = sizeof(HelloMsg); break;
+    case MSG_PING:   base = sizeof(PingMsg); break;
+    case MSG_PRESS:  base = sizeof(PressMsg); break;
+    case MSG_BPRESS: base = sizeof(BPressMsg); break;
+    default: return;
+  }
+  if (it.len != base + 2 || it.data[base] != SIM_TAG) return;
+  uint8_t id = it.data[base + 1];
+  uint8_t v[6] = {0x02, it.mac[3], it.mac[4], it.mac[5], SIM_TAG, id};
+  memcpy(it.mac, v, 6);
+  it.len = base;
+}
+
 static void handleRx(const RxItem &it) {
   {
     const MsgHeader *h = (const MsgHeader *)it.data;
@@ -676,9 +703,13 @@ static void handleRx(const RxItem &it) {
 // ============================================================================
 //  Web API
 // ============================================================================
-static String stateJson() {
-  String o;
-  o.reserve(2048 + 180 * MAX_PLAYERS);
+// Builds the state JSON into o. Reserves the whole size first, so it never
+// grows in small steps (a failed grow would silently drop text). False = no memory.
+static bool stateJson(String &o) {
+  size_t need = 1600 + qText.length() + S.title.length() + S.apSsid.length() + S.staSsid.length() + S.hostName.length();
+  for (auto &q : qOpt) need += q.length();
+  for (auto &p : players) if (p.used) need += 260 + 2 * strlen(p.d.name);
+  if (!o.reserve(need)) return false;
   int64_t now = esp_timer_get_time();
   o += "{\"v\":"; o += stateVersion;
   o += ",\"fw\":\"" FW_VERSION_STR "\"";
@@ -764,7 +795,7 @@ static String stateJson() {
   o += ",\"host\":"; jsonStr(o, S.hostName);
   o += ",\"clients\":"; o += WiFi.softAPgetStationNum();
   o += "}}";
-  return o;
+  return o.length() <= need;            // still inside the reserved block -> nothing was dropped
 }
 
 static void ok(const char *msg = "ok") {
@@ -793,11 +824,33 @@ static void setupWeb() {
     server.sendGzip(200, "text/html; charset=utf-8", INDEX_HTML_GZ, INDEX_HTML_GZ_LEN);
   });
 
+  // State: built at most every 40 ms (or when something changed) and shared by
+  // every browser asking at the same time, instead of one copy per request.
   server.on("/api/state", MW_GET, []() {
-    String s;
-    { GameLock g; s = stateJson(); }          // build under the lock, send without it
+    static SharedBody cache;
+    static uint32_t cacheAt = 0, cacheVer = 0;
+    uint32_t now = millis();
+    if (!cache || now - cacheAt >= 40 || cacheVer != stateVersion) {
+      // Reuse one of 3 buffers that no client is still reading: no fresh 6 KB
+      // allocation per update, so the heap doesn't fragment under load.
+      static std::shared_ptr<String> pool[3];
+      std::shared_ptr<String> s;
+      for (auto &b : pool) {
+        if (!b) { b = std::make_shared<String>(); b->reserve(8192); }
+        if (b.use_count() == 1) { *b = ""; s = b; break; }
+      }
+      if (!s) s = std::make_shared<String>();     // all 3 busy: a one-off buffer
+      bool good;
+      { GameLock g; cacheVer = stateVersion; good = stateJson(*s); }
+      if (!good) {
+        server.send(503, "application/json", "{\"ok\":false,\"msg\":\"busy\"}");
+        return;
+      }
+      cache = s;
+      cacheAt = now;
+    }
     server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "application/json", s);
+    server.sendShared(200, "application/json", cache);
   });
 
   onApi("/api/start", MW_POST, []() {
@@ -923,6 +976,20 @@ static void setupWeb() {
     bump(); ok();
   });
 
+  // Swarm test: on=1/0 turns test mode on/off; clear=1 removes all test buzzers.
+  onApi("/api/test", MW_POST, []() {
+    if (server.hasArg("on")) simEnabled = server.arg("on").toInt() != 0;
+    int removed = 0;
+    if (server.hasArg("clear")) {
+      for (auto &p : players) if (p.used && isSimMac(p.d.mac)) { p.used = false; removed++; }
+      if (winner >= 0 && !players[winner].used) winner = -1;
+      savePlayers(); bump();
+    }
+    hlogf("[test] test mode %s%s", simEnabled ? "ON" : "off", removed ? ", test buzzers removed" : "");
+    char m[48]; snprintf(m, sizeof(m), "test mode %s, removed %d", simEnabled ? "on" : "off", removed);
+    ok(m);
+  });
+
   // Log lines after ?after=<seq> (max 120 per call). Source "" = host.
   server.on("/api/logs", MW_GET, []() {
     uint32_t after = server.arg("after").toInt();
@@ -933,7 +1000,12 @@ static void setupWeb() {
     uint32_t first = logSeq > LOG_LINES ? logSeq - LOG_LINES + 1 : 1;
     if (after + 1 > first) first = after + 1;
     if (logSeq >= first && logSeq - first + 1 > 120) first = logSeq - 119;
-    o.reserve(4096);
+    size_t need = 96;                            // reserve exactly what these lines need
+    for (uint32_t s = first; s <= logSeq && logSeq; s++) {
+      const LogLine &L = logRing[(s - 1) % LOG_LINES];
+      if (L.seq == s) need += 72 + 2 * strlen(L.text);
+    }
+    if (!o.reserve(need)) { server.send(503, "application/json", "{\"ok\":false}"); return; }
     o += "{\"last\":"; o += logSeq; o += ",\"now\":"; o += millis(); o += ",\"lines\":[";
     bool firstLine = true;
     for (uint32_t s = first; s <= logSeq && logSeq; s++) {
@@ -948,6 +1020,7 @@ static void setupWeb() {
       o += ",\"m\":\""; o += mac; o += "\",\"x\":"; jsonStr(o, L.text); o += "}";
     }
     o += "]}";
+    if (o.length() > need) { server.send(503, "application/json", "{\"ok\":false}"); return; }
     }
     server.sendHeader("Cache-Control", "no-store");
     server.send(200, "application/json", o);
@@ -1067,8 +1140,10 @@ static void gameTask(void *) {
     bool got = xQueueReceive(rxQ, &it, pdMS_TO_TICKS(2)) == pdTRUE;
     GameLock g;
     if (got) {
-      handleRx(it);
-      while (xQueueReceive(rxQ, &it, 0) == pdTRUE) handleRx(it);
+      do {
+        if (simEnabled) simRewrite(it);
+        handleRx(it);
+      } while (xQueueReceive(rxQ, &it, 0) == pdTRUE);
     }
     tickRound();
     // State heartbeat: fast while a round is live, slower otherwise.
